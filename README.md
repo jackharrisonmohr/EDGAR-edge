@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 Key Highlights
+## ✅ Key Highlights
 
 - **Latency & Throughput**: < 60 s ingest from SEC → S3, p95 inference < 200 ms on t4g.small, sustain 300 filings/hr
 - **Signal Quality**: 6‑mo IC ≥ 0.05 (t‑stat ≥ 3), transaction‑cost‑adjusted Sharpe > 1
@@ -140,8 +140,6 @@ Also see the [project board] (https://github.com/users/jackharrisonmohr/projects
 ## 🤝 Contribution & Acknowledgments
 
 This is primarily a **solo‑dev portfolio project**.  
-Thanks to [Your Mentor] for feedback on the model pipeline, and [Peer Reviewer] for Terraform best‑practice tips.
-
 To suggest improvements or report issues, please open a GitHub Issue or send a PR against this README.
 
 ---
@@ -151,13 +149,7 @@ To suggest improvements or report issues, please open a GitHub Issue or send a P
 [MIT License](LICENSE)
 
 
-
-
-
-
-
-### Project Board at https://github.com/users/jackharrisonmohr/projects/1
-
+---
 
 ## Next Steps For Production Deployment
 - switch from lambda + RSS feed to container + PDS feed for sub-second prod latency
