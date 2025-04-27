@@ -1,1 +1,16 @@
-.github/
+# Bytecode and Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.env/
+.venv/
+
+# Poetry files to **keep** (do NOT ignore poetry.lock)
+
+# OS files
+.DS_Store
+
+# Other
+*.log
