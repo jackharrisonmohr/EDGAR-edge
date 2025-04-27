@@ -114,7 +114,8 @@ aws s3 ls s3://edgar-edge-raw/ --recursive | tail -n 10
 | …    | …                                       | …                                       |
 | 12   | White‑paper PDF + full back‑test        | Cost‑adjusted Sharpe > 1                |
 
-See [ROADMAP.md](docs/ROADMAP.md) for full detail.
+See [roadmap.md](docs/roadmap.md) for full detail.
+Also see the [project board] (https://github.com/users/jackharrisonmohr/projects/1/views/1) for current issues.
 
 ---
 
