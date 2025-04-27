@@ -19,12 +19,28 @@
 ## 📦 Architecture Overview
 
 ```text
-SEC RSS/API → Ingest Lambda → S3 `raw/` → SQS FIFO → Fargate Scoring → S3 `scored/`
-         │                           │                 │                │
-         └──── CloudWatch metrics ─┴───> Athena / Glue catalog ───> Airflow factor builder ──> S3 `factors/` + PDF reports
-                                            │                                              │
-                                            └──────────────────────────────────────────────┘
-Streamlit Dashboard + Grafana / Prometheus monitor latency & uptime
+    RSS / API Feed
+          │
+          ▼
+    Ingest Lambda ──► S3 `raw/`
+          │            │
+          ▼            ▼
+       SQS FIFO   CloudWatch Metrics
+          │
+          ▼
+    Fargate Scoring ──► S3 `scored/`
+          │
+          ▼
+  Athena / Glue Catalog
+          │
+          ▼
+Airflow Factor Builder ──► S3 `factors/` + PDF reports
+          │
+          ▼
+Streamlit Dashboard
+          │
+          ▼
+Grafana / Prometheus Monitoring
 ```
 
 For a detailed diagram, see [`docs/architecture.md`](docs/architecture.md).
@@ -32,6 +48,7 @@ For a detailed diagram, see [`docs/architecture.md`](docs/architecture.md).
 ---
 
 ## 🏁 Quickstart
+> (live demo to come. So far this quickstart just allows you to deploy the infrastructure on AWS and pull the SEC filings from the EDGAR RSS feed into an s3 bucket in real-time. - JHM, 2025-04-27)
 
 ### Prerequisites
 
