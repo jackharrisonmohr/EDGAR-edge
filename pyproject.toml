@@ -1,0 +1,29 @@
+[project]
+name = "edgar-edge"
+version = "0.1.0"
+description = "Streaming NLP Factor Engine for 8‑K / 10‑K Filings"
+authors = [
+    {name = "Harrison",email = "jmohr1@hawk.iit.edu"}
+]
+license = {text = "MIT License"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests (>=2.32.3,<3.0.0)",
+    "boto3 (>=1.38.3,<2.0.0)",
+    "python-dateutil (>=2.9.0.post0,<3.0.0)",
+    "feedparser (>=6.0.11,<7.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.2.0"
+pytest = "^8.3.5"
+moto = "^5.1.4"
+
