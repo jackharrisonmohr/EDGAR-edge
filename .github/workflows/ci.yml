@@ -1,0 +1,36 @@
+on: [push]
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install poetry && poetry install --no-root
+      - name: Run tests
+        run: poetry run pytest -q
+      - name: Build Lambda package
+        run: make lambda-package
+      - name: Check Terraform format
+        run: terraform -chdir=infra fmt -check
+  deploy:
+    needs: test-build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install poetry && poetry install --no-root
+      - name: Build Lambda package
+        run: make lambda-package
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Apply
+        run: terraform -chdir=infra apply -auto-approve

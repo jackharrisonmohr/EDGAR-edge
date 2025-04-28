@@ -103,6 +103,26 @@ aws s3 ls s3://edgar-edge-raw/ --recursive | tail -n 10
 
 ---
 
+---
+
+## 🎉 Milestone 1: Ingest PoC
+
+We successfully built and tested a quick-and-dirty Proof of Concept (PoC) for ingesting SEC filings. This PoC simulates pulling data from the EDGAR RSS feed and saving it locally.
+
+**Key Achievements:**
+
+- Created a Python script (`src/ingest/rss_poc.py`) to parse the RSS feed data.
+- Successfully processed a static snapshot of the RSS feed and generated JSON files for individual filings in the `tmp/` directory.
+- Configured `pyproject.toml` to facilitate local execution of the PoC script.
+
+**Next Steps (AWS Deployment & Verification):**
+
+- Deploy the Lambda puller function to AWS using Terraform.
+- Verify that new filing objects land in the `edgar-edge-raw` S3 bucket.
+- Monitor CloudWatch Logs Insights for the `LAG_SECS` metric to confirm ingest latency is below 60 seconds.
+
+---
+
 ## 📅 Roadmap & Milestones
 
 | Week | Deliverable                             | KPI Gate                                |
