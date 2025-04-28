@@ -39,5 +39,7 @@ jobs:
         run: make lambda-package
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform -chdir=infra init
       - name: Terraform Apply
         run: terraform -chdir=infra apply -auto-approve
