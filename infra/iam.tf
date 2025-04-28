@@ -47,6 +47,6 @@ resource "aws_iam_role_policy_attachment" "lambda_ingest_policy_attachment" {
 }
 
 resource "aws_cloudwatch_log_group" "ingest_lambda_log_group" {
-  name = "/aws/lambda/edgar-edge-ingest-puller"
+  name              = "/aws/lambda/edgar-edge-ingest-puller"
   retention_in_days = 7
 }
