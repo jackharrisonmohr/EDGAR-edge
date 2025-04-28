@@ -20,10 +20,12 @@ dependencies = [
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poetry]
+package-mode = false
+
 [tool.poetry.group.dev.dependencies]
 black = "^25.1.0"
 isort = "^6.0.1"
 flake8 = "^7.2.0"
 pytest = "^8.3.5"
 moto = "^5.1.4"
-
