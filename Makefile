@@ -8,7 +8,7 @@ lambda-package: install
 	mkdir -p package
 
 	# Install dependencies into the package directory
-	poetry export --output requirements.txt --without-hashes
+	poetry export --format requirements.txt --output requirements.txt --without-hashes
 	pip install --target package -r requirements.txt
 
 	# Copy the Lambda handler code into the package directory
