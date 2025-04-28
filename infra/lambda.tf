@@ -8,7 +8,7 @@ resource "aws_lambda_function" "ingest_puller" {
 
   environment {
     variables = {
-      RAW_BUCKET = aws_s3_bucket.edgar_edge_raw.id
+      RAW_BUCKET = aws_s3_bucket.raw_filings.id
       RSS_URL    = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom"
     }
   }
