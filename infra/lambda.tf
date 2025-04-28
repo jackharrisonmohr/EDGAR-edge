@@ -17,3 +17,15 @@ resource "aws_lambda_function" "ingest_puller" {
     Project = var.project_name
   }
 }
+
+resource "aws_cloudwatch_event_rule" "ingest_schedule_rule" {
+  name                = "edgar-edge-ingest-schedule-rule"
+  description         = "Triggers the ingest Lambda function every minute"
+  schedule_expression = "rate(1 minute)"
+}
+
+resource "aws_cloudwatch_event_target" "ingest_lambda_target" {
+  rule      = aws_cloudwatch_event_rule.ingest_schedule_rule.name
+  target_id = "IngestLambda"
+  arn       = aws_lambda_function.ingest_puller.arn
+}
