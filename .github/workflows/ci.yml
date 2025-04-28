@@ -16,8 +16,11 @@ jobs:
         run: poetry run pytest -q
       - name: Build Lambda package
         run: make lambda-package
+      - name: Set up Terraform 
+        uses: hashicorp/setup-terraform@v3
       - name: Check Terraform format
         run: terraform -chdir=infra fmt -check
+
   deploy:
     needs: test-build
     if: github.ref == 'refs/heads/main'
