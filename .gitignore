@@ -23,3 +23,10 @@ __pycache__/
 
 
 tmp/
+
+#pytest
+.pytest_cache/
+
+lambda_ingest.zip
+
+venv/
