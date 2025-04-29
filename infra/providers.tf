@@ -2,21 +2,20 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0" # Specify a suitable version constraint
+      version = "~> 5.0"
     }
   }
 
-  # Using local state initially as per sprint1.md
-  # To use S3 backend later, uncomment and configure:
-  # backend "s3" {
-  #   bucket         = "your-terraform-state-bucket-name" # Replace with your bucket name
-  #   key            = "edgar-edge/terraform.tfstate"
-  #   region         = "us-east-1" # Or your preferred region
-  #   encrypt        = true
-  #   dynamodb_table = "your-terraform-lock-table" # Optional: for state locking
-  # }
+  backend "s3" {
+    bucket         = "edgar-edge-tfstate-617597922955-us-east-1"
+    key            = "terraform.tfstate" # Keep the state file name consistent
+    region         = "us-east-1"
+    dynamodb_table = "edgar-edge-tfstate-lock"
+    encrypt        = true # Ensure state file encryption at rest
+  }
 }
 
 provider "aws" {
   region = var.aws_region
+  # Configuration options
 }
