@@ -20,7 +20,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lambda-package
-          path: EDGAR-Edge/lambda_ingest.zip
+          path: lambda_ingest.zip # Corrected path
       - name: Set up Terraform 
         uses: hashicorp/setup-terraform@v3
       - name: Check Terraform format
@@ -44,9 +44,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lambda-package
-          path: EDGAR-Edge/
-      - name: Build Lambda package
-        run: make lambda-package
+          # Path removed to download to workspace root
+      # Removed redundant build step; artifact is already downloaded
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
