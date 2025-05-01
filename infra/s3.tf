@@ -2,12 +2,20 @@ resource "aws_s3_bucket" "raw_filings" {
   bucket = "${var.project_name}-raw"
 
   tags = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_versioning" "raw_filings_versioning" {
   bucket = aws_s3_bucket.raw_filings.id
   versioning_configuration {
     status = "Enabled"
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -24,6 +32,10 @@ resource "aws_s3_bucket" "logs" {
   bucket = "${var.project_name}-logs"
 
   tags = var.tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_s3_bucket_versioning" "logs_versioning" {

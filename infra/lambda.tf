@@ -33,8 +33,15 @@ resource "aws_cloudwatch_event_rule" "ingest_schedule_rule" {
   schedule_expression = "rate(1 minute)"
 }
 
-resource "aws_cloudwatch_event_target" "ingest_lambda_target" {
-  rule      = aws_cloudwatch_event_rule.ingest_schedule_rule.name
-  target_id = "IngestLambda"
-  arn       = aws_lambda_function.ingest_puller.arn
-}
+# # “Daytime” rule: 10:00–21:00 UTC
+# resource "aws_cloudwatch_event_rule" "edgar_day" {
+#   name                = "edgar-poll-day"
+#   schedule_expression = "cron(0/1 10-21 ? * MON-FRI *)"
+# }
+
+# # “Half-hour” tail rule for the 21:30 cutoff
+# resource "aws_cloudwatch_event_rule" "edgar_tail" {
+#   name                = "edgar-poll-tail"
+#   schedule_expression = "cron(30/1 21 ? * MON-FRI *)"
+# }
+
