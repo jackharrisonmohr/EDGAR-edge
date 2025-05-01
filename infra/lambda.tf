@@ -5,6 +5,7 @@ resource "aws_lambda_function" "ingest_puller" {
   role             = aws_iam_role.lambda_ingest_role.arn
   filename         = "../lambda_ingest.zip"                   # This will be created by the CI/CD pipeline
   source_code_hash = filebase64sha256("../lambda_ingest.zip") # This will be updated by the CI/CD pipeline
+  timeout = 30
 
   environment {
     variables = {
@@ -16,6 +17,14 @@ resource "aws_lambda_function" "ingest_puller" {
   tags = {
     Project = var.project_name
   }
+}
+
+resource "aws_lambda_permission" "allow_eventbridge" {
+  statement_id  = "AllowExecutionFromEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ingest_puller.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.ingest_schedule_rule.arn
 }
 
 resource "aws_cloudwatch_event_rule" "ingest_schedule_rule" {
