@@ -28,8 +28,8 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 }
 
 resource "aws_cloudwatch_event_rule" "ingest_schedule_rule" {
-  name                = "edgar-edge-ingest-schedule-rule"
-  description         = "Triggers the ingest Lambda function at a scheduled interval"
+  name        = "edgar-edge-ingest-schedule-rule"
+  description = "Triggers the ingest Lambda function at a scheduled interval"
   # schedule_expression = "rate(30 minutes)" # Adjust the rate as needed
   schedule_expression = "rate(1 minute)" # Adjust the rate as needed
 }
