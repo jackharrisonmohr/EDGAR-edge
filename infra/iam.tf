@@ -36,6 +36,13 @@ resource "aws_iam_policy" "lambda_ingest_policy" {
         ],
         Effect   = "Allow",
         Resource = "${aws_s3_bucket.raw_filings.arn}/raw/*"
+      },
+      {
+        Action = [
+          "sqs:SendMessage"
+        ],
+        Effect   = "Allow",
+        Resource = aws_sqs_queue.score_queue.arn # Reference the ARN from sqs.tf
       }
     ]
   })
@@ -48,5 +55,5 @@ resource "aws_iam_role_policy_attachment" "lambda_ingest_policy_attachment" {
 
 resource "aws_cloudwatch_log_group" "ingest_lambda_log_group" {
   name              = "/aws/lambda/edgar-edge-ingest-puller"
-  retention_in_days = 7
+  retention_in_days = 7 
 }
