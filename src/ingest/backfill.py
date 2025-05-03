@@ -3,6 +3,18 @@ Download or back‑fill SEC 8‑K / 10‑K filings.
 
   • mode="local" –> ./data/raw/{year}/{accession}.json
   • mode="s3"    –> s3://{bucket}/raw/{year}/{accession}.json
+
+  entries in the idx files look like this:
+
+CIK|Company Name|Form Type|Date Filed|Filename
+--------------------------------------------------------------------------------
+1000045|NICHOLAS FINANCIAL INC|10-Q|2024-02-13|edgar/data/1000045/0000950170-24-014566.txt
+1000045|NICHOLAS FINANCIAL INC|424B3|2024-03-19|edgar/data/1000045/0000950170-24-033226.txt
+1000045|NICHOLAS FINANCIAL INC|8-K|2024-02-13|edgar/data/1000045/0000950170-24-014524.txt
+1000045|NICHOLAS FINANCIAL INC|8-K|2024-02-14|edgar/data/1000045/0000950170-24-015038.txt
+1000045|NICHOLAS FINANCIAL INC|8-K|2024-03-04|edgar/data/1000045/0000950170-24-024439.txt
+1000045|NICHOLAS FINANCIAL INC|CORRESP|2024-01-10|edgar/data/1000045/0000950170-24-003550.txt
+...
 """
 
 import gzip

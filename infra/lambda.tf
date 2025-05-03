@@ -3,8 +3,11 @@ resource "aws_lambda_function" "ingest_puller" {
   handler          = "handler.lambda_handler"
   runtime          = "python3.12"
   role             = aws_iam_role.lambda_ingest_role.arn
-  filename         = "../lambda_ingest.zip"                   # This will be created by the CI/CD pipeline
-  source_code_hash = filebase64sha256("../lambda_ingest.zip") # This will be updated by the CI/CD pipeline
+  # filename         = "../lambda_ingest.zip"                   # Replaced by S3 source
+  # source_code_hash = filebase64sha256("../lambda_ingest.zip") # Replaced by S3 source
+  s3_bucket        = aws_s3_bucket.artifacts.id # Reference the artifacts bucket
+  s3_key           = var.lambda_zip_s3_key      # Provided by CI/CD
+  s3_object_version= var.lambda_zip_s3_version  # Optional: Provided by CI/CD if versioning is used
   timeout          = 30
 
   environment {
