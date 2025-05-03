@@ -43,6 +43,14 @@ resource "aws_iam_policy" "lambda_ingest_policy" {
         ],
         Effect   = "Allow",
         Resource = aws_sqs_queue.score_queue.arn # Reference the ARN from sqs.tf
+      },
+      {
+        Action = [
+          "dynamodb:PutItem"
+          # Potentially add UpdateItem, GetItem if needed later for more complex logic
+        ],
+        Effect   = "Allow",
+        Resource = aws_dynamodb_table.filing_dedupe.arn # Reference the ARN from dynamodb.tf
       }
     ]
   })

@@ -12,6 +12,7 @@ resource "aws_lambda_function" "ingest_puller" {
       RAW_BUCKET      = aws_s3_bucket.raw_filings.id
       RSS_URL         = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom"
       SCORE_QUEUE_URL = aws_sqs_queue.score_queue.id # Get URL from sqs.tf output
+      DEDUPE_TABLE    = aws_dynamodb_table.filing_dedupe.name # Get table name from dynamodb.tf
     }
   }
 
