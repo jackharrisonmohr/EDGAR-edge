@@ -105,35 +105,40 @@ aws s3 ls s3://edgar-edge-raw/ --recursive | tail -n 10
 
 ---
 
-## 🎉 Milestone 1: Ingest PoC
+## 🎉 Milestone 1: Real-time Ingest Pipeline (Completed Week 1)
 
-We successfully built and tested a quick-and-dirty Proof of Concept (PoC) for ingesting SEC filings. This PoC simulates pulling data from the EDGAR RSS feed and saving it locally.
+Successfully established the foundational real-time data ingestion pipeline, achieving the goal of landing raw SEC filings in an S3 bucket within 60 seconds of their publication on the EDGAR RSS feed.
 
 **Key Achievements:**
 
-- Created a Python script (`src/ingest/rss_poc.py`) to parse the RSS feed data.
-- Successfully processed a static snapshot of the RSS feed and generated JSON files for individual filings in the `tmp/` directory.
-- Configured `pyproject.toml` to facilitate local execution of the PoC script.
+- **Infrastructure Setup:** Provisioned core AWS resources (S3 buckets for raw data and logs, IAM execution role, CloudWatch log group) using Terraform (`infra/`).
+- **SEC Feed Integration:** Developed and tested a Python script (`src/ingest/rss_poc.py`) to parse the EDGAR 8-K RSS feed.
+- **Lambda Puller:** Deployed an AWS Lambda function (`src/ingest/handler.py`) triggered every minute by EventBridge to poll the RSS feed and write new filing metadata to the `edgar-edge-raw` S3 bucket.
+- **Latency Measurement:** Instrumented the Lambda function to calculate and log the ingest latency (`LAG_SECS`) from SEC publication time to S3 write time.
+- **Verification:** Confirmed end-to-end functionality through smoke tests, verifying timely object creation in S3 and monitoring latency via CloudWatch Logs Insights, achieving `p50 lag < 60s`.
+- **CI/CD Foundation:** Implemented a basic GitHub Actions workflow (`.github/workflows/ci.yml`) for automated testing, code formatting checks, Lambda packaging, and Terraform deployment on pushes to `main`.
+- **Development Environment:** Set up the project structure, configured `pyproject.toml` with Poetry for dependency management, and integrated development tools (`black`, `isort`, `flake8`, `pytest`, `moto`, `pre-commit`).
 
-**Next Steps (AWS Deployment & Verification):**
-
-- Deploy the Lambda puller function to AWS using Terraform.
-- Verify that new filing objects land in the `edgar-edge-raw` S3 bucket.
-- Monitor CloudWatch Logs Insights for the `LAG_SECS` metric to confirm ingest latency is below 60 seconds.
+This milestone provides the reliable, low-latency data source required for the subsequent stages of the project.
 
 ---
 
 ## 📅 Roadmap & Milestones
 
-| Week | Deliverable                             | KPI Gate                                |
-|------|-----------------------------------------|-----------------------------------------|
-| 1    | Lambda ingest PoC → S3 < 60 s           | Raw filing appears in S3 < 60 s         |
-| 2    | SQS dedupe + historical downloader      | 2023 filings laid down in one day       |
-| 3    | FastAPI scoring (dummy model)           | p95 < 300 ms                            |
-| 4    | TorchScript export + fp16 quantisation  | E2E demo online                         |
-| …    | …                                       | …                                       |
-| 12   | White‑paper PDF + full back‑test        | Cost‑adjusted Sharpe > 1                |
-
+| Week | Engineering deliverable | Research deliverable | KPI Gate |
+|------|------------------------|----------------------|----------|
+| 1 | Terraform skeleton, SEC RSS PoC → S3 | — | Raw filing in S3 in \<60 s |
+| 2 | SQS queue + dedupe; link Lambda → SQS | Label historical filings script | 1‑day ingest of 2023 docs |
+| 3 | FastAPI scoring container (dummy model) | DistilRoBERTa fine‑tune notebook | p95 scoring \<300 ms |
+| 4 | TorchScript export + fp16 quant | Initial validation F1 score | MVP E2E demo online |
+| 5 | Glue crawler, Athena view | Factor builder DAG (daily) | daily parquet table live |
+| 6 | Sector/beta neutralisation code | IC computation script | 1‑yr IC ≥0.04 |
+| 7 | Vectorbt back‑test notebook | Sharpe, draw‑down report | Sharpe > 0.8 (pre‑cost) |
+| 8 | Streamlit dashboard v1 | Publish README + screencast | Public demo URL |
+| 9 | Prometheus/Grafana alerts | Walk‑forward robustness tests | p95 ingest lag \<90 s |
+| 10 | IR / t‑stat monitoring | Add regime‑shift stress tests | t‑stat ≥3 |
+| 11 | Security hardening, load test 100 rps | Final factor correlation matrix | |ρ| \< 0.3 vs F‑F |
+| 12 | Documentation polish, white‑paper PDF | Final back‑test w/ txn costs | Cost‑adj Sharpe > 1 |
 See [roadmap.md](docs/roadmap.md) for full detail.
 Also see the [project board] (https://github.com/users/jackharrisonmohr/projects/1/views/1) for current issues.
 
