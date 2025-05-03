@@ -29,19 +29,13 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 
 resource "aws_cloudwatch_event_rule" "ingest_schedule_rule" {
   name                = "edgar-edge-ingest-schedule-rule"
-  description         = "Triggers the ingest Lambda function every minute"
-  schedule_expression = "rate(1 minute)"
+  description         = "Triggers the ingest Lambda function at a scheduled interval"
+  # schedule_expression = "rate(30 minutes)" # Adjust the rate as needed
+  schedule_expression = "rate(1 minute)" # Adjust the rate as needed
 }
 
-# # “Daytime” rule: 10:00–21:00 UTC
-# resource "aws_cloudwatch_event_rule" "edgar_day" {
-#   name                = "edgar-poll-day"
-#   schedule_expression = "cron(0/1 10-21 ? * MON-FRI *)"
-# }
-
-# # “Half-hour” tail rule for the 21:30 cutoff
-# resource "aws_cloudwatch_event_rule" "edgar_tail" {
-#   name                = "edgar-poll-tail"
-#   schedule_expression = "cron(30/1 21 ? * MON-FRI *)"
-# }
-
+resource "aws_cloudwatch_event_target" "ingest_lambda_target" {
+  rule      = aws_cloudwatch_event_rule.ingest_schedule_rule.name
+  target_id = "IngestLambda"
+  arn       = aws_lambda_function.ingest_puller.arn
+}
