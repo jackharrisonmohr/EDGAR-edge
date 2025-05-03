@@ -1,43 +1,82 @@
-import os
+"""
+Download or back‑fill SEC 8‑K / 10‑K filings.
+
+  • mode="local" –> ./data/raw/{year}/{accession}.json
+  • mode="s3"    –> s3://{bucket}/raw/{year}/{accession}.json
+"""
+
 import gzip
 import io
 import json
-import requests
+import os
+import time
 from datetime import datetime
 
-try:
-    import boto3
-except ImportError:
-    boto3 = None  # only needed in S3 mode
+import requests
+from requests.adapters import HTTPAdapter, Retry
 
-def download_filings(year: int, mode: str, bucket: str = None):
-    """
-    Downloads all 8-K and 10-K filings for `year`.
-    mode="local" → writes to ./data/raw/{year}/{accession}.json
-    mode="s3"    → uploads to s3://{bucket}/raw/{year}/{accession}.json
-    """
-    for q in range(1, 5):
-        idx_url = (
-            f"https://www.sec.gov/Archives/edgar/daily-index/"
-            f"{year}/QTR{q}/master.gz"
+try:
+    import boto3  # only needed for S3 uploads
+except ImportError:
+    boto3 = None  # type: ignore[assignment]
+
+# ──────────────────────────────────────────────────────────────────────────
+#   SEC polite‑access headers  (must be ASCII; see fair‑access rules)
+# ──────────────────────────────────────────────────────────────────────────
+USER_AGENT = "EDGAR-Edge harrisonmohr@gmail.com"
+SEC_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept-Encoding": "gzip, deflate",
+    "Host": "www.sec.gov",
+}
+
+# Root for quarterly master files
+INDEX_BASE = "https://www.sec.gov/Archives/edgar/full-index"
+
+# ──────────────────────────────────────────────────────────────────────────
+#   shared HTTP session with retries + back‑off
+# ──────────────────────────────────────────────────────────────────────────
+_session = requests.Session()
+_session.headers.update(SEC_HEADERS)
+_session.mount(
+    "https://",
+    HTTPAdapter(
+        max_retries=Retry(
+            total=5,
+            backoff_factor=1.0,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET"],
         )
+    ),
+)
+
+RATE_DELAY = 0.12  # keep <10 requests/sec
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#   public entry point
+# ──────────────────────────────────────────────────────────────────────────
+def download_filings(year: int, mode: str, bucket: str | None = None) -> None:
+    if mode == "s3" and not bucket:
+        raise ValueError("bucket must be provided when mode == 's3'")
+
+    for q in range(1, 5):
+        idx_url = f"{INDEX_BASE}/{year}/QTR{q}/master.gz"
         print(f"  • Fetching index {idx_url}")
-        resp = requests.get(idx_url)
+        resp = _session.get(idx_url, timeout=30)
         resp.raise_for_status()
 
-        # decompress and split lines
+        # decompress and split into lines
         with gzip.GzipFile(fileobj=io.BytesIO(resp.content)) as gz:
             text = gz.read().decode("utf-8", errors="ignore")
         lines = text.splitlines()
 
-        # find where the table starts (after header)
-        start = 0
-        for i, line in enumerate(lines):
-            if line.startswith("CIK|"):
-                start = i + 1
-                break
+        try:
+            start = next(i for i, ln in enumerate(lines) if ln.startswith("CIK|")) + 1
+        except StopIteration:
+            print("    ! Could not find header line in index – skipping quarter")
+            continue
 
-        # iterate filings
         for line in lines[start:]:
             parts = line.split("|")
             if len(parts) < 5:
@@ -46,42 +85,47 @@ def download_filings(year: int, mode: str, bucket: str = None):
             if form not in ("8-K", "10-K"):
                 continue
 
-            # derive accession and URL
             accession = os.path.basename(filename).replace(".txt", "")
             filing_url = "https://www.sec.gov/Archives/" + filename
-
             _save_filing(year, accession, filing_url, mode, bucket)
+            time.sleep(RATE_DELAY)
 
 
-def _save_filing(year: int, accession: str, url: str, mode: str, bucket: str):
-    """Fetches a single filing and writes JSON to local or S3."""
+# ──────────────────────────────────────────────────────────────────────────
+#   helpers
+# ──────────────────────────────────────────────────────────────────────────
+def _save_filing(
+    year: int,
+    accession: str,
+    url: str,
+    mode: str,
+    bucket: str | None,
+) -> None:
     try:
-        resp = requests.get(url)
+        resp = _session.get(url, timeout=30)
         resp.raise_for_status()
-        content = resp.text
-    except Exception as e:
-        print(f"    ! Error fetching {accession} at {url}: {e}")
+    except Exception as exc:
+        print(f"    ! Error fetching {accession}: {exc}")
         return
 
     record = {
         "accession": accession,
-        "fetched_at": datetime.utcnow().isoformat() + "Z",
+        "fetched_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "url": url,
-        "content": content,
+        "content": resp.text,
     }
-    body = json.dumps(record).encode("utf-8")
+    body = json.dumps(record).encode()
 
     if mode == "local":
         path = os.path.join("data", "raw", str(year), f"{accession}.json")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             f.write(body)
-        print(f"    ✓ Saved local {path}")
+        print(f"    ✓ Saved {path}")
 
     else:  # mode == "s3"
         if boto3 is None:
-            raise RuntimeError("boto3 required for s3 mode")
-        s3 = boto3.client("s3")
+            raise RuntimeError("boto3 is required for S3 uploads")
         key = f"raw/{year}/{accession}.json"
-        s3.put_object(Bucket=bucket, Key=key, Body=body)
+        boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=body)
         print(f"    ✓ Uploaded s3://{bucket}/{key}")

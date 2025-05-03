@@ -3,7 +3,16 @@ import sys
 import os
 import argparse
 
+'''
 # Allow imports from src/ingest
+
+Usage:
+# Local download:
+python scripts/backfill.py --mode local --years 2019 2020
+
+# Upload directly to S3:
+python scripts/backfill.py --mode s3 --years 2019 2020 --bucket my-edgar-raw-bucket
+'''
 ROOT = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 

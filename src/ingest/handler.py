@@ -9,7 +9,7 @@ RSS = os.environ["RSS_URL"]
 def lambda_handler(event, context):
     req = urllib.request.Request(
         RSS,
-        headers={"User-Agent": "MyAppName contact@example.com"}
+        headers={"User-Agent": "EDGAR-Edge jackharrisonmohr@gmail.com"}
     )
     with urllib.request.urlopen(req) as response:
         feed = feedparser.parse(response.read())
