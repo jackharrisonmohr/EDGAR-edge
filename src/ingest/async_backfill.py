@@ -1,17 +1,8 @@
-"""
-Asynchronous back-fill of SEC 8-K / 10-K filings — single event loop.
-
-Usage:
-    python -m src.ingest.async_backfill --mode s3 --bucket <bucket> --years 2020 2021 …
-"""
-
 import asyncio
 import gzip
-# import functools # No longer needed
 import io
 import json
 import os
-import time
 from datetime import datetime
 from typing import List, Optional
 
@@ -20,41 +11,38 @@ import boto3
 import botocore
 
 # ──────────────────────────────────────────────────────────────────────────
-# SEC polite-access headers (ASCII only)
+# Configuration
 # ──────────────────────────────────────────────────────────────────────────
+RATE = 5  # Max requests per second
+
+# SEC polite-access headers (ASCII only)
 SEC_HEADERS = {
     "User-Agent": "EDGAR-Edge2 jackharrisonmohr@gmail.com",
     "Accept-Encoding": "gzip, deflate",
     "Host": "www.sec.gov",
 }
 INDEX_BASE = "https://www.sec.gov/Archives/edgar/full-index"
-RATE = 5  # Reduced max requests/sec
-SEM = asyncio.Semaphore(RATE) # Reduced semaphore limit
-
-# s3 = boto3.client("s3") # Remove global client
 
 
-async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
-    # print(f"      -> Attempting fetch: {url}") # DEBUG REMOVED
-    async with SEM:
-        # print(f"      -> Acquired semaphore for: {url}") # DEBUG REMOVED
+async def fetch(
+    session: aiohttp.ClientSession,
+    url: str,
+    sem: asyncio.Semaphore,
+) -> bytes:
+    """
+    Fetch content from the given URL, respecting the semaphore rate limit.
+    """
+    async with sem:
         try:
-            # Rely on session timeouts configured below
             async with session.get(url) as resp:
-                # print(f"      -> Got response status {resp.status} for: {url}") # DEBUG REMOVED
                 resp.raise_for_status()
-                # print(f"      -> Reading response for: {url}") # DEBUG REMOVED
-                content = await resp.read()
-                # print(f"      -> Finished reading response for: {url}") # DEBUG REMOVED
-                return content
+                return await resp.read()
         except asyncio.TimeoutError:
             print(f"    ! Timeout error fetching {url}")
-            raise # Re-raise to be handled upstream or logged
+            raise
         except aiohttp.ClientError as e:
             print(f"    ! Client error fetching {url}: {e}")
-            raise # Re-raise
-        # finally:
-            # print(f"      -> Released semaphore for: {url}") # DEBUG REMOVED
+            raise
 
 
 async def save_filing(
@@ -64,23 +52,25 @@ async def save_filing(
     url: str,
     mode: str,
     bucket: Optional[str],
-    s3_client, # Add s3_client parameter
+    s3_client,
+    sem: asyncio.Semaphore,
 ):
-    # loop = asyncio.get_running_loop() # No longer needed
+    """
+    Download and save a single filing (to S3 or local filesystem).
+    """
     key = f"raw/{year}/{accession}.json"
 
     if mode == "s3":
         try:
-            # Call head_object directly (synchronously)
             s3_client.head_object(Bucket=bucket, Key=key)
             print(f"    ○ Skipping {accession}, already in s3://{bucket}/{key}")
             return
         except botocore.exceptions.ClientError as e:
-            # 404 Not Found → fall through and download
-            if e.response["Error"]["Code"] != "404":
+            if e.response.get("Error", {}).get("Code") != "404":
                 raise
+
     try:
-        data = await fetch(session, url)
+        data = await fetch(session, url, sem)
         content = data.decode("utf-8", "ignore")
     except Exception as e:
         print(f"    ! Error fetching {accession}: {e}")
@@ -94,29 +84,22 @@ async def save_filing(
     }
     body = json.dumps(record).encode()
 
-    key = f"raw/{year}/{accession}.json"
     if mode == "s3":
         try:
-            # Call put_object directly (synchronously)
             s3_client.put_object(Bucket=bucket, Key=key, Body=body)
             print(f"    ✓ Uploaded s3://{bucket}/{key}")
         except Exception as e:
-             print(f"    ! S3 Error uploading key: s3://{bucket}/{key}. Error: {e}")
-             # Decide if we should return or raise here depending on desired behavior
-             return # For now, log error and skip this filing on upload failure
+            print(f"    ! S3 Error uploading key s3://{bucket}/{key}: {e}")
+            return
     else:
-        # Local file writing is also blocking, run in executor too for consistency
         path = os.path.join("data", "raw", str(year), f"{accession}.json")
         try:
-            # Define a helper function for the blocking file operations
-            # Call local file operations directly (synchronously)
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "wb") as f:
                 f.write(body)
             print(f"    ✓ Saved {path}")
         except Exception as e:
-            print(f"    ! Error saving local file: {path}. Error: {e}")
-            return # Log error and skip
+            print(f"    ! Error saving local file {path}: {e}")
 
 
 async def one_quarter(
@@ -125,16 +108,20 @@ async def one_quarter(
     quarter: int,
     mode: str,
     bucket: Optional[str],
-    s3_client, # Add s3_client parameter
-    batch_size: int = 100  # Reduced batch size
+    s3_client,
+    sem: asyncio.Semaphore,
+    batch_size: int = 100,
 ):
+    """
+    Process all filings for a single quarter.
+    """
     idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.idx"
     print(f"  • Fetching index {idx_url}")
     try:
-        raw = await fetch(session, idx_url)
+        raw = await fetch(session, idx_url, sem)
     except Exception as e:
         print(f"    ! Failed to fetch index {idx_url}: {e}")
-        return # Skip this quarter if index fetch fails
+        return
 
     print(f"    -- Processing index {idx_url}...")
     tasks = []
@@ -142,14 +129,13 @@ async def one_quarter(
     filing_count = 0
     header_found = False
 
-    # Process the index file line by line to save memory
     try:
         with io.TextIOWrapper(io.BytesIO(raw), encoding='utf-8', errors='ignore') as f:
             for line in f:
                 if not header_found:
                     if line.startswith("CIK|"):
                         header_found = True
-                    continue # Skip lines until header row
+                    continue
 
                 parts = line.strip().split("|")
                 if len(parts) < 5:
@@ -161,61 +147,70 @@ async def one_quarter(
                 filing_count += 1
                 accession = os.path.basename(filename).replace(".txt", "")
                 filing_url = "https://www.sec.gov/Archives/" + filename
-                # Pass s3_client to save_filing
-                tasks.append(save_filing(session, year, accession, filing_url, mode, bucket, s3_client))
+                tasks.append(
+                    save_filing(
+                        session, year, accession, filing_url,
+                        mode, bucket, s3_client, sem
+                    )
+                )
 
-                # If batch is full, run tasks and reset
                 if len(tasks) >= batch_size:
                     print(f"      > Gathering batch of {len(tasks)} filing tasks...")
                     await asyncio.gather(*tasks)
                     processed_count += len(tasks)
                     print(f"      > Batch complete. Total processed so far: {processed_count}")
-                    tasks = [] # Reset tasks list for next batch
+                    tasks = []
 
-            # Process any remaining tasks in the last batch
             if tasks:
                 print(f"      > Gathering final batch of {len(tasks)} filing tasks...")
                 await asyncio.gather(*tasks)
                 processed_count += len(tasks)
-                print(f"      > Final batch complete.")
+                print("      > Final batch complete.")
 
         if not header_found:
-             print("    ! No header line found in index file.")
+            print("    ! No header line found in index file.")
 
-        print(f"    -- Finished processing index {idx_url}. Found {filing_count} relevant filings. Processed {processed_count} tasks.")
+        print(
+            f"    -- Finished processing index {idx_url}. "
+            f"Found {filing_count} relevant filings, processed {processed_count} tasks."
+        )
 
     except Exception as e:
         print(f"    ! Error processing index file {idx_url}: {e}")
-        # If tasks were pending, try to gather them anyway? Or just log error.
-        # For simplicity, just log and move on. Potential partial processing.
         if tasks:
-             print(f"    ! {len(tasks)} tasks were pending when error occurred.")
+            print(f"    ! {len(tasks)} tasks were pending when error occurred.")
 
 
 async def run(years: List[int], mode: str, bucket: Optional[str]):
-    # Set up one session *inside* this loop
-    # Configure more specific timeouts
+    """
+    Orchestrates the backfill over multiple years.
+    """
     timeout = aiohttp.ClientTimeout(
-        total=None,        # No overall total time limit for the session
-        connect=30,        # Max 30 seconds to establish connection
-        sock_connect=30,   # Max 30 seconds for socket connection attempt
-        sock_read=60       # Max 60 seconds to read data from socket
+        total=None,
+        connect=30,
+        sock_connect=30,
+        sock_read=60,
     )
     connector = aiohttp.TCPConnector(limit_per_host=RATE, limit=None)
-    # Initialize s3 client here, within the async context
+
+    # Create semaphore inside the event loop
+    sem = asyncio.Semaphore(RATE)
     s3_client = boto3.client("s3")
+
     async with aiohttp.ClientSession(
-        headers=SEC_HEADERS, connector=connector, timeout=timeout
+        headers=SEC_HEADERS,
+        connector=connector,
+        timeout=timeout
     ) as session:
         for year in years:
             print(f"\nProcessing Year: {year}")
             for q in range(1, 5):
                 print(f"  Processing Quarter: Q{q}")
-                # Pass s3_client to one_quarter
-                await one_quarter(session, year, q, mode, bucket, s3_client) # batch_size defaults to 1000
-                # small pause to keep the SEC happy across quarters
+                await one_quarter(
+                    session, year, q, mode, bucket, s3_client, sem
+                )
                 print(f"  -- Quarter Q{q} finished, pausing...")
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
             print(f"Finished Year: {year}")
 
 
@@ -223,11 +218,21 @@ def main():
     import argparse
     import sys
 
-    p = argparse.ArgumentParser()
-    p.add_argument("--mode", choices=["local", "s3"], required=True)
-    p.add_argument("--bucket", help="S3 bucket (required if mode is s3)")
-    p.add_argument("--years", type=int, nargs="+", required=True)
-    args = p.parse_args()
+    parser = argparse.ArgumentParser(
+        description="Asynchronous back-fill of SEC filings"
+    )
+    parser.add_argument(
+        "--mode", choices=["local", "s3"], required=True,
+        help="Save mode: 'local' or 's3'"
+    )
+    parser.add_argument(
+        "--bucket", help="S3 bucket (required if mode is s3)"
+    )
+    parser.add_argument(
+        "--years", type=int, nargs='+', required=True,
+        help="List of years to backfill, e.g. 2020 2021"
+    )
+    args = parser.parse_args()
 
     if args.mode == "s3" and not args.bucket:
         sys.exit("Error: --bucket is required when mode is s3")
