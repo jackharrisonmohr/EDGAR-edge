@@ -107,32 +107,69 @@ async def one_quarter(
     quarter: int,
     mode: str,
     bucket: Optional[str],
+    batch_size: int = 1000  # Process filings in batches
 ):
     idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.idx"
     print(f"  • Fetching index {idx_url}")
-    raw = await fetch(session, idx_url)
-    lines = raw.decode("utf-8", "ignore").splitlines()
-
     try:
-        start = next(i for i, ln in enumerate(lines) if ln.startswith("CIK|")) + 1
-    except StopIteration:
-        print("    ! No header found, skipping")
-        return
+        raw = await fetch(session, idx_url)
+    except Exception as e:
+        print(f"    ! Failed to fetch index {idx_url}: {e}")
+        return # Skip this quarter if index fetch fails
 
-    coros = []
-    for ln in lines[start:]:
-        parts = ln.split("|")
-        if len(parts) < 5:
-            continue
-        _, _, form, _, filename = parts
-        if form not in ("8-K", "10-K"):
-            continue
+    print(f"    -- Processing index {idx_url}...")
+    tasks = []
+    processed_count = 0
+    filing_count = 0
+    header_found = False
 
-        accession = os.path.basename(filename).replace(".txt", "")
-        filing_url = "https://www.sec.gov/Archives/" + filename
-        coros.append(save_filing(session, year, accession, filing_url, mode, bucket))
+    # Process the index file line by line to save memory
+    try:
+        with io.TextIOWrapper(io.BytesIO(raw), encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                if not header_found:
+                    if line.startswith("CIK|"):
+                        header_found = True
+                    continue # Skip lines until header row
 
-    await asyncio.gather(*coros)
+                parts = line.strip().split("|")
+                if len(parts) < 5:
+                    continue
+                _, _, form, _, filename = parts
+                if form not in ("8-K", "10-K"):
+                    continue
+
+                filing_count += 1
+                accession = os.path.basename(filename).replace(".txt", "")
+                filing_url = "https://www.sec.gov/Archives/" + filename
+                tasks.append(save_filing(session, year, accession, filing_url, mode, bucket))
+
+                # If batch is full, run tasks and reset
+                if len(tasks) >= batch_size:
+                    print(f"      > Gathering batch of {len(tasks)} filing tasks...")
+                    await asyncio.gather(*tasks)
+                    processed_count += len(tasks)
+                    print(f"      > Batch complete. Total processed so far: {processed_count}")
+                    tasks = [] # Reset tasks list for next batch
+
+            # Process any remaining tasks in the last batch
+            if tasks:
+                print(f"      > Gathering final batch of {len(tasks)} filing tasks...")
+                await asyncio.gather(*tasks)
+                processed_count += len(tasks)
+                print(f"      > Final batch complete.")
+
+        if not header_found:
+             print("    ! No header line found in index file.")
+
+        print(f"    -- Finished processing index {idx_url}. Found {filing_count} relevant filings. Processed {processed_count} tasks.")
+
+    except Exception as e:
+        print(f"    ! Error processing index file {idx_url}: {e}")
+        # If tasks were pending, try to gather them anyway? Or just log error.
+        # For simplicity, just log and move on. Potential partial processing.
+        if tasks:
+             print(f"    ! {len(tasks)} tasks were pending when error occurred.")
 
 
 async def run(years: List[int], mode: str, bucket: Optional[str]):
@@ -149,10 +186,14 @@ async def run(years: List[int], mode: str, bucket: Optional[str]):
         headers=SEC_HEADERS, connector=connector, timeout=timeout
     ) as session:
         for year in years:
+            print(f"\nProcessing Year: {year}")
             for q in range(1, 5):
-                await one_quarter(session, year, q, mode, bucket)
+                print(f"  Processing Quarter: Q{q}")
+                await one_quarter(session, year, q, mode, bucket) # batch_size defaults to 1000
                 # small pause to keep the SEC happy across quarters
+                print(f"  -- Quarter Q{q} finished, pausing...")
                 time.sleep(0.5)
+            print(f"Finished Year: {year}")
 
 
 def main():
