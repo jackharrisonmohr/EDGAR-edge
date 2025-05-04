@@ -7,7 +7,7 @@ Usage:
 
 import asyncio
 import gzip
-import functools # Import functools
+# import functools # No longer needed
 import io
 import json
 import os
@@ -28,24 +28,24 @@ SEC_HEADERS = {
     "Host": "www.sec.gov",
 }
 INDEX_BASE = "https://www.sec.gov/Archives/edgar/full-index"
-RATE = 10  # max requests/sec per SEC fair-access rules
-SEM = asyncio.Semaphore(RATE)
+RATE = 5  # Reduced max requests/sec
+SEM = asyncio.Semaphore(RATE) # Reduced semaphore limit
 
 # s3 = boto3.client("s3") # Remove global client
 
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
-    print(f"      -> Attempting fetch: {url}") # DEBUG
+    # print(f"      -> Attempting fetch: {url}") # DEBUG REMOVED
     async with SEM:
-        print(f"      -> Acquired semaphore for: {url}") # DEBUG
+        # print(f"      -> Acquired semaphore for: {url}") # DEBUG REMOVED
         try:
             # Rely on session timeouts configured below
             async with session.get(url) as resp:
-                print(f"      -> Got response status {resp.status} for: {url}") # DEBUG
+                # print(f"      -> Got response status {resp.status} for: {url}") # DEBUG REMOVED
                 resp.raise_for_status()
-                print(f"      -> Reading response for: {url}") # DEBUG
+                # print(f"      -> Reading response for: {url}") # DEBUG REMOVED
                 content = await resp.read()
-                print(f"      -> Finished reading response for: {url}") # DEBUG
+                # print(f"      -> Finished reading response for: {url}") # DEBUG REMOVED
                 return content
         except asyncio.TimeoutError:
             print(f"    ! Timeout error fetching {url}")
@@ -53,8 +53,8 @@ async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
         except aiohttp.ClientError as e:
             print(f"    ! Client error fetching {url}: {e}")
             raise # Re-raise
-        finally:
-            print(f"      -> Released semaphore for: {url}") # DEBUG
+        # finally:
+            # print(f"      -> Released semaphore for: {url}") # DEBUG REMOVED
 
 
 async def save_filing(
@@ -66,14 +66,13 @@ async def save_filing(
     bucket: Optional[str],
     s3_client, # Add s3_client parameter
 ):
-    loop = asyncio.get_running_loop()
+    # loop = asyncio.get_running_loop() # No longer needed
     key = f"raw/{year}/{accession}.json"
 
     if mode == "s3":
         try:
-            # Use functools.partial with the passed s3_client
-            head_object_partial = functools.partial(s3_client.head_object, Bucket=bucket, Key=key)
-            await loop.run_in_executor(None, head_object_partial)
+            # Call head_object directly (synchronously)
+            s3_client.head_object(Bucket=bucket, Key=key)
             print(f"    ○ Skipping {accession}, already in s3://{bucket}/{key}")
             return
         except botocore.exceptions.ClientError as e:
@@ -98,9 +97,8 @@ async def save_filing(
     key = f"raw/{year}/{accession}.json"
     if mode == "s3":
         try:
-            # Use functools.partial with the passed s3_client
-            put_object_partial = functools.partial(s3_client.put_object, Bucket=bucket, Key=key, Body=body)
-            await loop.run_in_executor(None, put_object_partial)
+            # Call put_object directly (synchronously)
+            s3_client.put_object(Bucket=bucket, Key=key, Body=body)
             print(f"    ✓ Uploaded s3://{bucket}/{key}")
         except Exception as e:
              print(f"    ! S3 Error uploading key: s3://{bucket}/{key}. Error: {e}")
@@ -111,12 +109,10 @@ async def save_filing(
         path = os.path.join("data", "raw", str(year), f"{accession}.json")
         try:
             # Define a helper function for the blocking file operations
-            def write_local_file():
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "wb") as f:
-                    f.write(body)
-
-            await loop.run_in_executor(None, write_local_file)
+            # Call local file operations directly (synchronously)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(body)
             print(f"    ✓ Saved {path}")
         except Exception as e:
             print(f"    ! Error saving local file: {path}. Error: {e}")
@@ -130,7 +126,7 @@ async def one_quarter(
     mode: str,
     bucket: Optional[str],
     s3_client, # Add s3_client parameter
-    batch_size: int = 1000  # Process filings in batches
+    batch_size: int = 100  # Reduced batch size
 ):
     idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.idx"
     print(f"  • Fetching index {idx_url}")

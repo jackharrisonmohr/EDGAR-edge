@@ -1,4 +1,8 @@
-on: [push]
+on:
+  push:
+    branches:
+      - main
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
@@ -16,11 +20,6 @@ jobs:
         run: poetry run pytest -q
       - name: Build Lambda package
         run: make lambda-package
-      - name: Upload Lambda package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lambda-package
-          path: lambda_ingest.zip # Corrected path
       - name: Set up Terraform 
         uses: hashicorp/setup-terraform@v3
       - name: Check Terraform format
@@ -31,7 +30,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -40,12 +38,8 @@ jobs:
         run: pip install poetry poetry-plugin-export
       - name: Install dependencies
         run: poetry install --no-root
-      - name: Download Lambda package artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: lambda-package
-          # Path removed to download to workspace root
-      # Removed redundant build step; artifact is already downloaded
+      - name: Build Lambda package
+        run: make lambda-package
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
