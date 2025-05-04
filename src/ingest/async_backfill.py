@@ -92,22 +92,18 @@ async def one_quarter(
     mode: str,
     bucket: Optional[str],
 ):
-    idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.gz"
+    idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.idx"
     print(f"  • Fetching index {idx_url}")
-    data = await fetch(session, idx_url)
+    raw = await fetch(session, idx_url)
+    lines = raw.decode("utf-8", "ignore").splitlines()
 
-    with gzip.GzipFile(fileobj=io.BytesIO(data)) as gz:
-        lines = gz.read().decode("utf-8", "ignore").splitlines()
-
-    # locate header
     try:
         start = next(i for i, ln in enumerate(lines) if ln.startswith("CIK|")) + 1
     except StopIteration:
         print("    ! No header found, skipping")
         return
 
-    # collect coroutines (not tasks)
-    coros: List[asyncio.Future] = []
+    coros = []
     for ln in lines[start:]:
         parts = ln.split("|")
         if len(parts) < 5:
@@ -120,7 +116,6 @@ async def one_quarter(
         filing_url = "https://www.sec.gov/Archives/" + filename
         coros.append(save_filing(session, year, accession, filing_url, mode, bucket))
 
-    # run them all under the same loop
     await asyncio.gather(*coros)
 
 
