@@ -64,10 +64,13 @@ async def save_filing(
     mode: str,
     bucket: Optional[str],
 ):
+    loop = asyncio.get_running_loop()
     key = f"raw/{year}/{accession}.json"
+
     if mode == "s3":
         try:
-            s3.head_object(Bucket=bucket, Key=key)
+            # Run synchronous S3 head_object in a thread pool executor
+            await loop.run_in_executor(None, s3.head_object, Bucket=bucket, Key=key)
             print(f"    ○ Skipping {accession}, already in s3://{bucket}/{key}")
             return
         except botocore.exceptions.ClientError as e:
@@ -91,14 +94,29 @@ async def save_filing(
 
     key = f"raw/{year}/{accession}.json"
     if mode == "s3":
-        s3.put_object(Bucket=bucket, Key=key, Body=body)
-        print(f"    ✓ Uploaded s3://{bucket}/{key}")
+        try:
+            # Run synchronous S3 put_object in a thread pool executor
+            await loop.run_in_executor(None, s3.put_object, Bucket=bucket, Key=key, Body=body)
+            print(f"    ✓ Uploaded s3://{bucket}/{key}")
+        except Exception as e:
+             print(f"    ! S3 Error uploading key: s3://{bucket}/{key}. Error: {e}")
+             # Decide if we should return or raise here depending on desired behavior
+             return # For now, log error and skip this filing on upload failure
     else:
+        # Local file writing is also blocking, run in executor too for consistency
         path = os.path.join("data", "raw", str(year), f"{accession}.json")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as f:
-            f.write(body)
-        print(f"    ✓ Saved {path}")
+        try:
+            # Define a helper function for the blocking file operations
+            def write_local_file():
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(body)
+
+            await loop.run_in_executor(None, write_local_file)
+            print(f"    ✓ Saved {path}")
+        except Exception as e:
+            print(f"    ! Error saving local file: {path}. Error: {e}")
+            return # Log error and skip
 
 
 async def one_quarter(
