@@ -7,6 +7,7 @@ Usage:
 
 import asyncio
 import gzip
+import functools # Import functools
 import io
 import json
 import os
@@ -69,8 +70,9 @@ async def save_filing(
 
     if mode == "s3":
         try:
-            # Run synchronous S3 head_object in a thread pool executor
-            await loop.run_in_executor(None, s3.head_object, Bucket=bucket, Key=key)
+            # Use functools.partial to pass keyword arguments to head_object via executor
+            head_object_partial = functools.partial(s3.head_object, Bucket=bucket, Key=key)
+            await loop.run_in_executor(None, head_object_partial)
             print(f"    ○ Skipping {accession}, already in s3://{bucket}/{key}")
             return
         except botocore.exceptions.ClientError as e:
@@ -95,8 +97,9 @@ async def save_filing(
     key = f"raw/{year}/{accession}.json"
     if mode == "s3":
         try:
-            # Run synchronous S3 put_object in a thread pool executor
-            await loop.run_in_executor(None, s3.put_object, Bucket=bucket, Key=key, Body=body)
+            # Use functools.partial to pass keyword arguments to put_object via executor
+            put_object_partial = functools.partial(s3.put_object, Bucket=bucket, Key=key, Body=body)
+            await loop.run_in_executor(None, put_object_partial)
             print(f"    ✓ Uploaded s3://{bucket}/{key}")
         except Exception as e:
              print(f"    ! S3 Error uploading key: s3://{bucket}/{key}. Error: {e}")
