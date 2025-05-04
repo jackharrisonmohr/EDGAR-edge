@@ -22,7 +22,7 @@ import botocore
 # SEC polite-access headers (ASCII only)
 # ──────────────────────────────────────────────────────────────────────────
 SEC_HEADERS = {
-    "User-Agent": "EDGAR-Edge harrisonmohr@gmail.com",
+    "User-Agent": "EDGAR-Edge2 jackharrisonmohr@gmail.com",
     "Accept-Encoding": "gzip, deflate",
     "Host": "www.sec.gov",
 }
@@ -34,10 +34,26 @@ s3 = boto3.client("s3")
 
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
+    # print(f"      -> Attempting fetch: {url}") # DEBUG
     async with SEM:
-        async with session.get(url, timeout=30) as resp:
-            resp.raise_for_status()
-            return await resp.read()
+        # print(f"      -> Acquired semaphore for: {url}") # DEBUG
+        try:
+            # Rely on session timeouts configured below
+            async with session.get(url) as resp:
+                # print(f"      -> Got response status {resp.status} for: {url}") # DEBUG
+                resp.raise_for_status()
+                # print(f"      -> Reading response for: {url}") # DEBUG
+                content = await resp.read()
+                # print(f"      -> Finished reading response for: {url}") # DEBUG
+                return content
+        except asyncio.TimeoutError:
+            print(f"    ! Timeout error fetching {url}")
+            raise # Re-raise to be handled upstream or logged
+        except aiohttp.ClientError as e:
+            print(f"    ! Client error fetching {url}: {e}")
+            raise # Re-raise
+        # finally:
+            # print(f"      -> Released semaphore for: {url}") # DEBUG
 
 
 async def save_filing(
@@ -121,7 +137,13 @@ async def one_quarter(
 
 async def run(years: List[int], mode: str, bucket: Optional[str]):
     # Set up one session *inside* this loop
-    timeout = aiohttp.ClientTimeout(total=None)
+    # Configure more specific timeouts
+    timeout = aiohttp.ClientTimeout(
+        total=None,        # No overall total time limit for the session
+        connect=30,        # Max 30 seconds to establish connection
+        sock_connect=30,   # Max 30 seconds for socket connection attempt
+        sock_read=60       # Max 60 seconds to read data from socket
+    )
     connector = aiohttp.TCPConnector(limit_per_host=RATE, limit=None)
     async with aiohttp.ClientSession(
         headers=SEC_HEADERS, connector=connector, timeout=timeout
