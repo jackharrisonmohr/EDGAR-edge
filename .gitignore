@@ -30,3 +30,6 @@ tmp/
 lambda_ingest.zip
 
 venv/
+
+cik_dict.txt
+ticker.txt
