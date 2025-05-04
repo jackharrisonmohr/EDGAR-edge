@@ -34,17 +34,17 @@ s3 = boto3.client("s3")
 
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
-    # print(f"      -> Attempting fetch: {url}") # DEBUG
+    print(f"      -> Attempting fetch: {url}") # DEBUG
     async with SEM:
-        # print(f"      -> Acquired semaphore for: {url}") # DEBUG
+        print(f"      -> Acquired semaphore for: {url}") # DEBUG
         try:
             # Rely on session timeouts configured below
             async with session.get(url) as resp:
-                # print(f"      -> Got response status {resp.status} for: {url}") # DEBUG
+                print(f"      -> Got response status {resp.status} for: {url}") # DEBUG
                 resp.raise_for_status()
-                # print(f"      -> Reading response for: {url}") # DEBUG
+                print(f"      -> Reading response for: {url}") # DEBUG
                 content = await resp.read()
-                # print(f"      -> Finished reading response for: {url}") # DEBUG
+                print(f"      -> Finished reading response for: {url}") # DEBUG
                 return content
         except asyncio.TimeoutError:
             print(f"    ! Timeout error fetching {url}")
@@ -52,8 +52,8 @@ async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
         except aiohttp.ClientError as e:
             print(f"    ! Client error fetching {url}: {e}")
             raise # Re-raise
-        # finally:
-            # print(f"      -> Released semaphore for: {url}") # DEBUG
+        finally:
+            print(f"      -> Released semaphore for: {url}") # DEBUG
 
 
 async def save_filing(
