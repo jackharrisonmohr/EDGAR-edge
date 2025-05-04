@@ -31,7 +31,7 @@ INDEX_BASE = "https://www.sec.gov/Archives/edgar/full-index"
 RATE = 10  # max requests/sec per SEC fair-access rules
 SEM = asyncio.Semaphore(RATE)
 
-s3 = boto3.client("s3")
+# s3 = boto3.client("s3") # Remove global client
 
 
 async def fetch(session: aiohttp.ClientSession, url: str) -> bytes:
@@ -64,14 +64,15 @@ async def save_filing(
     url: str,
     mode: str,
     bucket: Optional[str],
+    s3_client, # Add s3_client parameter
 ):
     loop = asyncio.get_running_loop()
     key = f"raw/{year}/{accession}.json"
 
     if mode == "s3":
         try:
-            # Use functools.partial to pass keyword arguments to head_object via executor
-            head_object_partial = functools.partial(s3.head_object, Bucket=bucket, Key=key)
+            # Use functools.partial with the passed s3_client
+            head_object_partial = functools.partial(s3_client.head_object, Bucket=bucket, Key=key)
             await loop.run_in_executor(None, head_object_partial)
             print(f"    ○ Skipping {accession}, already in s3://{bucket}/{key}")
             return
@@ -97,8 +98,8 @@ async def save_filing(
     key = f"raw/{year}/{accession}.json"
     if mode == "s3":
         try:
-            # Use functools.partial to pass keyword arguments to put_object via executor
-            put_object_partial = functools.partial(s3.put_object, Bucket=bucket, Key=key, Body=body)
+            # Use functools.partial with the passed s3_client
+            put_object_partial = functools.partial(s3_client.put_object, Bucket=bucket, Key=key, Body=body)
             await loop.run_in_executor(None, put_object_partial)
             print(f"    ✓ Uploaded s3://{bucket}/{key}")
         except Exception as e:
@@ -128,6 +129,7 @@ async def one_quarter(
     quarter: int,
     mode: str,
     bucket: Optional[str],
+    s3_client, # Add s3_client parameter
     batch_size: int = 1000  # Process filings in batches
 ):
     idx_url = f"{INDEX_BASE}/{year}/QTR{quarter}/master.idx"
@@ -163,7 +165,8 @@ async def one_quarter(
                 filing_count += 1
                 accession = os.path.basename(filename).replace(".txt", "")
                 filing_url = "https://www.sec.gov/Archives/" + filename
-                tasks.append(save_filing(session, year, accession, filing_url, mode, bucket))
+                # Pass s3_client to save_filing
+                tasks.append(save_filing(session, year, accession, filing_url, mode, bucket, s3_client))
 
                 # If batch is full, run tasks and reset
                 if len(tasks) >= batch_size:
@@ -203,6 +206,8 @@ async def run(years: List[int], mode: str, bucket: Optional[str]):
         sock_read=60       # Max 60 seconds to read data from socket
     )
     connector = aiohttp.TCPConnector(limit_per_host=RATE, limit=None)
+    # Initialize s3 client here, within the async context
+    s3_client = boto3.client("s3")
     async with aiohttp.ClientSession(
         headers=SEC_HEADERS, connector=connector, timeout=timeout
     ) as session:
@@ -210,7 +215,8 @@ async def run(years: List[int], mode: str, bucket: Optional[str]):
             print(f"\nProcessing Year: {year}")
             for q in range(1, 5):
                 print(f"  Processing Quarter: Q{q}")
-                await one_quarter(session, year, q, mode, bucket) # batch_size defaults to 1000
+                # Pass s3_client to one_quarter
+                await one_quarter(session, year, q, mode, bucket, s3_client) # batch_size defaults to 1000
                 # small pause to keep the SEC happy across quarters
                 print(f"  -- Quarter Q{q} finished, pausing...")
                 time.sleep(0.5)
