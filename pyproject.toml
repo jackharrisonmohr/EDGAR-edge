@@ -38,3 +38,8 @@ isort = "^6.0.1"
 flake8 = "^7.2.0"
 pytest = "^8.3.5"
 moto = "^5.1.4"
+
+[tool.poetry.group.lambda-ingest.dependencies]
+# Dependencies specifically needed for the ingest lambda handler
+boto3 = ">=1.38.3,<2.0.0"
+feedparser = ">=6.0.11,<7.0.0"

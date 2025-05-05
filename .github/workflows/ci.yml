@@ -11,6 +11,7 @@ on:
 jobs:
   test-build: # Runs on both push and PR to main
     name: Test and Build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,28 +103,40 @@ jobs:
         run: poetry install --no-root
       - name: Build Lambda package
         run: make lambda-package
-      # Upload artifact to S3 (needed for Lambda deployment)
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+
+      - name: Terraform Apply (Initial - Create Infra)
+        id: tf-apply-initial
+        run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=placeholder.zip" # Use a placeholder key first
+        env:
+           # Ensure TF_VAR_project_name is available if needed by infra config
+           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }}
+
       - name: Upload Lambda zip to S3 Artifacts Bucket
         id: s3-upload
         run: |
-          aws s3 cp lambda_ingest.zip s3://${{ secrets.TF_VAR_project_name }}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/lambda_ingest_${{ github.sha }}.zip --acl private
-          echo "s3_key=lambda_ingest_${{ github.sha }}.zip" >> $GITHUB_OUTPUT
+          S3_KEY="lambda_ingest_${{ github.sha }}.zip"
+          aws s3 cp lambda_ingest.zip s3://${{ secrets.TF_VAR_project_name }}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/${S3_KEY} --acl private
+          echo "s3_key=${S3_KEY}" >> $GITHUB_OUTPUT
         env:
-           # Assuming AWS_ACCOUNT_ID and TF_VAR_project_name are set as secrets
            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }} # Or use default from vars.tf if consistent
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-      - name: Terraform Init
-        run: terraform -chdir=infra init
-      - name: Terraform Apply
+           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }}
+
+      - name: Terraform Apply (Update Lambda S3 Key)
         run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=${{ steps.s3-upload.outputs.s3_key }}"
         env:
-           # Pass S3 key as variable to Terraform apply
+           # Pass the actual S3 key from the upload step
            TF_VAR_lambda_zip_s3_key: ${{ steps.s3-upload.outputs.s3_key }}
+           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }} # Ensure project name is still available

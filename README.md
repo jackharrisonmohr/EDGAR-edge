@@ -158,8 +158,6 @@ This milestone ensures that filings are processed reliably and exactly once, and
 | 10 | IR / t‑stat monitoring | Add regime‑shift stress tests | t‑stat ≥3 |
 | 11 | Security hardening, load test 100 rps | Final factor correlation matrix | |ρ| \< 0.3 vs F‑F |
 | 12 | Documentation polish, white‑paper PDF | Final back‑test w/ txn costs | Cost‑adj Sharpe > 1 |
-See [roadmap.md](docs/roadmap.md) for full detail.
-Also see the [project board] (https://github.com/users/jackharrisonmohr/projects/1/views/1) for current issues.
 
 ---
 

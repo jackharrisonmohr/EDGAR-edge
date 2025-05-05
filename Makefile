@@ -7,8 +7,8 @@ lambda-package: install
 	# Create a directory to package the Lambda code and dependencies
 	mkdir -p package
 
-	# Install dependencies into the package directory
-	poetry export --format requirements.txt --output requirements.txt --without-hashes
+	# Install dependencies into the package directory using the specific group
+	poetry export --only lambda-ingest --format requirements.txt --output requirements.txt --without-hashes
 	pip install --target package -r requirements.txt
 
 	# Copy the Lambda handler code into the package directory
