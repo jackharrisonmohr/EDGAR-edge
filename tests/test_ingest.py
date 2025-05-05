@@ -1,47 +1,76 @@
+import sys
+import os
+
+# Add project root to the Python path to help with module resolution
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import pytest
 import boto3
 import os
 import json
+# import io # No longer needed
+# import urllib.request # No longer needed for patching
 from moto import mock_aws
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 
-# Import the handler function to be tested
-# Assuming the test runs from the root directory or PYTHONPATH is set
-from EDGAR_Edge.src.ingest.handler import lambda_handler
-
 # --- Constants for Test ---
+# Define constants *before* setting env vars
 TEST_BUCKET = "test-edgar-edge-raw"
 TEST_QUEUE_NAME = "test-edgar-edge-score-queue.fifo"
 TEST_TABLE_NAME = "test-edgar-edge-filing-dedupe"
 TEST_REGION = "us-east-1" # Moto requires a region
 
+
+# Set required environment variables *before* importing the handler
+# These might be overwritten by the fixture later, but need to exist for import
+os.environ["RAW_BUCKET"] = TEST_BUCKET
+os.environ["SCORE_QUEUE_URL"] = f"https://sqs.{TEST_REGION}.amazonaws.com/123456789012/{TEST_QUEUE_NAME}" # Placeholder
+os.environ["DEDUPE_TABLE"] = TEST_TABLE_NAME
+os.environ["RSS_URL"] = "http://mock-rss-url.com" # Use a syntactically valid dummy URL
+
+
+# Import the handler function to be tested
+# Now this import should work because env vars are set
+from src.ingest.handler import lambda_handler
+
+
 # --- Mock Feed Data ---
 # Simulate feedparser result with duplicate entry '000-duplicate'
+# Entries should be objects supporting attribute access, like MagicMock instances
+MOCK_ENTRIES_DATA = [
+    {
+        'id': 'urn:tag:sec.gov,2008:accession-number=000-unique-1',
+        'updated': '2024-05-04T10:00:00-04:00', # Example timestamp
+        'link': 'http://example.com/unique-1'
+    },
+    {
+        'id': 'urn:tag:sec.gov,2008:accession-number=000-duplicate',
+        'updated': '2024-05-04T10:05:00-04:00',
+        'link': 'http://example.com/duplicate-1'
+    },
+    {
+        'id': 'urn:tag:sec.gov,2008:accession-number=000-duplicate', # Duplicate ID
+        'updated': '2024-05-04T10:10:00-04:00', # Different timestamp/link
+        'link': 'http://example.com/duplicate-2'
+    },
+     {
+        'id': 'urn:tag:sec.gov,2008:accession-number=000-unique-2',
+        'updated': '2024-05-04T10:15:00-04:00',
+        'link': 'http://example.com/unique-2'
+    },
+]
+
+# Create MagicMock objects for each entry
+mock_entries = [MagicMock(**data) for data in MOCK_ENTRIES_DATA]
+
+# Structure for the feed mock's return value
 MOCK_FEED_DATA = {
-    'entries': [
-        {
-            'id': 'urn:tag:sec.gov,2008:accession-number=000-unique-1',
-            'updated': '2024-05-04T10:00:00-04:00', # Example timestamp
-            'link': 'http://example.com/unique-1'
-        },
-        {
-            'id': 'urn:tag:sec.gov,2008:accession-number=000-duplicate',
-            'updated': '2024-05-04T10:05:00-04:00',
-            'link': 'http://example.com/duplicate-1'
-        },
-        {
-            'id': 'urn:tag:sec.gov,2008:accession-number=000-duplicate', # Duplicate ID
-            'updated': '2024-05-04T10:10:00-04:00', # Different timestamp/link
-            'link': 'http://example.com/duplicate-2'
-        },
-         {
-            'id': 'urn:tag:sec.gov,2008:accession-number=000-unique-2',
-            'updated': '2024-05-04T10:15:00-04:00',
-            'link': 'http://example.com/unique-2'
-        },
-    ]
+    'entries': mock_entries
 }
+
 
 # --- Test Fixture ---
 @pytest.fixture(scope="function")
@@ -59,12 +88,13 @@ def mock_env_vars(aws_credentials):
     os.environ["RAW_BUCKET"] = TEST_BUCKET
     # We need the queue URL, which moto provides after creation
     # We'll set a placeholder here and update it inside the test
-    os.environ["SCORE_QUEUE_URL"] = f"https://sqs.{TEST_REGION}.amazonaws.com/123456789012/{TEST_QUEUE_NAME}"
+    os.environ["SCORE_QUEUE_URL"] = f"https://sqs.{TEST_REGION}.amazonaws.com/123456789012/{TEST_QUEUE_NAME}" # Placeholder, will be updated
     os.environ["DEDUPE_TABLE"] = TEST_TABLE_NAME
-    os.environ["RSS_URL"] = "mock-rss-url" # Doesn't matter as feedparser is patched
+    os.environ["RSS_URL"] = "http://mock-rss-url.com" # Use the same valid dummy URL
 
 @mock_aws
-@patch('EDGAR_Edge.src.ingest.handler.feedparser.parse')
+# Only need to patch feedparser.parse now
+@patch('src.ingest.handler.feedparser.parse')
 def test_ingest_handler_deduplication(mock_feedparser_parse, mock_env_vars):
     """
     Tests that the handler correctly deduplicates filings based on accession_no
@@ -130,10 +160,10 @@ def test_ingest_handler_deduplication(mock_feedparser_parse, mock_env_vars):
     list_response = s3_client.list_objects_v2(Bucket=TEST_BUCKET, Prefix="raw/")
     assert list_response.get('KeyCount') == 3 # Should only be 3 objects
 
-    # Construct expected keys based on filing dates
-    dt_unique1 = datetime.strptime(MOCK_FEED_DATA['entries'][0]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
-    dt_duplicate = datetime.strptime(MOCK_FEED_DATA['entries'][1]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
-    dt_unique2 = datetime.strptime(MOCK_FEED_DATA['entries'][3]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
+    # Construct expected keys based on filing dates using the original data
+    dt_unique1 = datetime.strptime(MOCK_ENTRIES_DATA[0]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
+    dt_duplicate = datetime.strptime(MOCK_ENTRIES_DATA[1]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
+    dt_unique2 = datetime.strptime(MOCK_ENTRIES_DATA[3]['updated'], "%Y-%m-%dT%H:%M:%S%z").astimezone(timezone.utc)
 
     expected_key1 = f"raw/{dt_unique1:%Y/%m/%d}/000-unique-1.json"
     expected_key_dup = f"raw/{dt_duplicate:%Y/%m/%d}/000-duplicate.json" # Key from the *first* occurrence

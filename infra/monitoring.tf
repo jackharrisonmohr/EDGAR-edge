@@ -21,8 +21,8 @@ resource "aws_cloudwatch_metric_alarm" "sqs_score_queue_age_warning" {
   # ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = merge(var.tags, {
-    Name      = "${var.project_name}-score-queue-age-warning"
-    Severity  = "Warning"
+    Name     = "${var.project_name}-score-queue-age-warning"
+    Severity = "Warning"
   })
 }
 
@@ -47,7 +47,7 @@ resource "aws_cloudwatch_metric_alarm" "sqs_score_queue_age_critical" {
   # ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = merge(var.tags, {
-    Name      = "${var.project_name}-score-queue-age-critical"
-    Severity  = "Critical"
+    Name     = "${var.project_name}-score-queue-age-critical"
+    Severity = "Critical"
   })
 }

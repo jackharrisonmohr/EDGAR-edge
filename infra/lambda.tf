@@ -1,20 +1,20 @@
 resource "aws_lambda_function" "ingest_puller" {
-  function_name    = "edgar-edge-ingest-puller"
-  handler          = "handler.lambda_handler"
-  runtime          = "python3.12"
-  role             = aws_iam_role.lambda_ingest_role.arn
+  function_name = "edgar-edge-ingest-puller"
+  handler       = "handler.lambda_handler"
+  runtime       = "python3.12"
+  role          = aws_iam_role.lambda_ingest_role.arn
   # filename         = "../lambda_ingest.zip"                   # Replaced by S3 source
   # source_code_hash = filebase64sha256("../lambda_ingest.zip") # Replaced by S3 source
-  s3_bucket        = aws_s3_bucket.artifacts.id # Reference the artifacts bucket
-  s3_key           = var.lambda_zip_s3_key      # Provided by CI/CD
-  s3_object_version= var.lambda_zip_s3_version  # Optional: Provided by CI/CD if versioning is used
-  timeout          = 30
+  s3_bucket         = awws_s3_bucket.artifacts.id # Reference the artifacts bucket
+  s3_key            = var.lambda_zip_s3_key       # Provided by CI/CD
+  s3_object_version = var.lambda_zip_s3_version   # Optional: Provided by CI/CD if versioning is used
+  timeout           = 30
 
   environment {
     variables = {
       RAW_BUCKET      = aws_s3_bucket.raw_filings.id
       RSS_URL         = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom"
-      SCORE_QUEUE_URL = aws_sqs_queue.score_queue.id # Get URL from sqs.tf output
+      SCORE_QUEUE_URL = aws_sqs_queue.score_queue.id          # Get URL from sqs.tf output
       DEDUPE_TABLE    = aws_dynamodb_table.filing_dedupe.name # Get table name from dynamodb.tf
     }
   }

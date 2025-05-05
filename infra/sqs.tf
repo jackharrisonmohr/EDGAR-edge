@@ -24,7 +24,7 @@ resource "aws_sqs_queue" "score_queue" {
   })
 
   # FIFO attributes
-  fifo_queue                 = true
+  fifo_queue                  = true
   content_based_deduplication = false # We will provide MessageDeduplicationId
 
   # Visibility timeout (adjust based on expected processing time)
