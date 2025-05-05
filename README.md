@@ -123,6 +123,25 @@ This milestone provides the reliable, low-latency data source required for the s
 
 ---
 
+## 🎉 Milestone 2: Message Queue, Deduplication & Labeling Prep (Completed Week 2)
+
+Built upon the ingest pipeline by adding a robust message queue, deduplication, and preparing for the model training phase.
+
+**Key Achievements:**
+
+- **SQS Integration:** Created an SQS FIFO queue (`score-queue.fifo`) with a corresponding Dead Letter Queue (DLQ) using Terraform (`infra/sqs.tf`).
+- **Lambda → SQS:** Updated the ingest Lambda's IAM policy (`infra/iam.tf`) and handler code (`src/ingest/handler.py`) to send successfully ingested filing metadata (S3 key, accession no, etc.) as messages to the SQS queue using batching.
+- **Deduplication Store:** Provisioned a DynamoDB table (`filing-dedupe`) with TTL enabled for storing processed accession numbers (`infra/dynamodb.tf`).
+- **Ingest Deduplication:** Modified the ingest Lambda (`src/ingest/handler.py`) to perform a conditional `PutItem` to the DynamoDB table before processing a filing. If the accession number already exists, the filing is skipped, preventing duplicate processing downstream. Added unit tests (`tests/test_ingest.py`) using `moto` to verify this logic.
+- **Monitoring Foundation:** Added CloudWatch alarms (`infra/monitoring.tf`) to monitor the age of the oldest message in the SQS queue, triggering warnings and critical alerts if processing lags.
+- **Terraform Refactor:** Created a dedicated S3 bucket for deployment artifacts (`infra/artifacts.tf`) and updated the Lambda definition (`infra/lambda.tf`) to deploy code from this S3 bucket, improving the deployment process.
+- **Label Generation Script:** Created the initial script (`src/research/generate_labels.py`) to calculate forward abnormal returns and generate sentiment labels based on price data (`yfinance`) and CIK-ticker mapping (`ticker.txt`). Added necessary dependencies (`pandas`, `yfinance`, etc.) to `pyproject.toml`. (Note: Historical data download via `backfill.py` was completed separately by the user).
+- **CI Enhancements:** Updated the GitHub Actions workflow (`.github/workflows/ci.yml`) to run `terraform plan` on pull requests to `main` and to handle uploading the Lambda artifact to S3 during deployment.
+
+This milestone ensures that filings are processed reliably and exactly once, and prepares the necessary data labels for the upcoming model fine-tuning stage.
+
+---
+
 ## 📅 Roadmap & Milestones
 
 | Week | Engineering deliverable | Research deliverable | KPI Gate |

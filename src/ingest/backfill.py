@@ -1,4 +1,10 @@
 """
+NOTE: I ended up using async_backfill.py instead of this script.
+
+
+
+
+
 Download or back‑fill SEC 8‑K / 10‑K filings.
 
   • mode="local" –> ./data/raw/{year}/{accession}.json

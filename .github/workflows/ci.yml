@@ -1,10 +1,16 @@
+name: EDGAR-Edge CI/CD
+
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  test-build:
+  test-build: # Runs on both push and PR to main
+    name: Test and Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,11 +31,62 @@ jobs:
       - name: Check Terraform format
         run: terraform -chdir=infra fmt -check
 
-  deploy:
+  plan: # Runs only on PR to main
+    name: Terraform Plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: test-build # Ensure tests pass before planning
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      # Setup Python/Poetry needed if Makefile or scripts generate TF inputs
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Poetry and export plugin
+        run: pip install poetry poetry-plugin-export
+      - name: Install dependencies
+        run: poetry install --no-root
+      # Potentially run 'make lambda-package' if plan depends on it? Assuming not for now.
+      - name: Configure AWS Credentials (Read-Only Preferred for Plan)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # Use dedicated read-only keys if possible
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }} # Or hardcode your region e.g., us-east-1
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Init
+        run: terraform -chdir=infra init
+      - name: Terraform Plan
+        id: tf-plan
+        run: terraform -chdir=infra plan -no-color
+      # TODO: Add step here using actions/github-script or similar
+      # to format and post the plan output as a PR comment.
+      # Example using github-script (requires more setup):
+      # - name: Post Terraform Plan to PR
+      #   uses: actions/github-script@v6
+      #   if: github.event_name == 'pull_request'
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       const output = `#### Terraform Plan 📖\`${{ steps.tf-plan.outputs.stdout }}\``;
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: output
+      #       })
+
+  deploy: # Runs only on push to main
+    name: Deploy to AWS
     needs: test-build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -40,15 +97,28 @@ jobs:
         run: poetry install --no-root
       - name: Build Lambda package
         run: make lambda-package
+      # Upload artifact to S3 (needed for Lambda deployment)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }} # Or hardcode your region e.g., us-east-1
+          aws-region: ${{ secrets.AWS_REGION }}
+      - name: Upload Lambda zip to S3 Artifacts Bucket
+        id: s3-upload
+        run: |
+          aws s3 cp lambda_ingest.zip s3://${{ secrets.TF_VAR_project_name }}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/lambda_ingest_${{ github.sha }}.zip --acl private
+          echo "s3_key=lambda_ingest_${{ github.sha }}.zip" >> $GITHUB_OUTPUT
+        env:
+           # Assuming AWS_ACCOUNT_ID and TF_VAR_project_name are set as secrets
+           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }} # Or use default from vars.tf if consistent
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
       - name: Terraform Init
         run: terraform -chdir=infra init
       - name: Terraform Apply
-        run: terraform -chdir=infra apply -auto-approve
+        run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=${{ steps.s3-upload.outputs.s3_key }}"
+        env:
+           # Pass S3 key as variable to Terraform apply
+           TF_VAR_lambda_zip_s3_key: ${{ steps.s3-upload.outputs.s3_key }}
