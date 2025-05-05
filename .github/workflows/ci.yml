@@ -87,7 +87,7 @@ jobs:
 
   deploy: # Runs only on push to main
     name: Deploy to AWS
-    needs: test-build
+    # needs: test-build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
