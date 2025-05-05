@@ -23,6 +23,8 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
       - name: Run tests
+        env: # Set region for boto3/moto during testing
+          AWS_DEFAULT_REGION: us-east-1
         run: poetry run pytest -q
       - name: Build Lambda package
         run: make lambda-package
