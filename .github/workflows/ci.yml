@@ -125,24 +125,23 @@ jobs:
 
       - name: Terraform Apply (Initial - Create Infra)
         id: tf-apply-initial
+        # Removed env block - Terraform will use default project_name from vars.tf if secret is not set
         run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=placeholder.zip" # Use a placeholder key first
-        env:
-           # Ensure TF_VAR_project_name is available if needed by infra config
-           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }}
 
       - name: Upload Lambda zip to S3 Artifacts Bucket
         id: s3-upload
         run: |
           S3_KEY="lambda_ingest_${{ github.sha }}.zip"
-          aws s3 cp lambda_ingest.zip s3://${{ secrets.TF_VAR_project_name }}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/${S3_KEY} --acl private
+          PROJECT_NAME="${{ secrets.TF_VAR_project_name || 'edgar-edge' }}" # Use default if secret is not set
+          aws s3 cp lambda_ingest.zip s3://${PROJECT_NAME}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/${S3_KEY} --acl private
           echo "s3_key=${S3_KEY}" >> $GITHUB_OUTPUT
         env:
            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }}
+           # Removed TF_VAR_project_name from env as it's handled in the run script now
 
       - name: Terraform Apply (Update Lambda S3 Key)
+        # Removed env block - Terraform will use default project_name from vars.tf if secret is not set
         run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=${{ steps.s3-upload.outputs.s3_key }}"
         env:
            # Pass the actual S3 key from the upload step
            TF_VAR_lambda_zip_s3_key: ${{ steps.s3-upload.outputs.s3_key }}
-           TF_VAR_project_name: ${{ secrets.TF_VAR_project_name }} # Ensure project name is still available
