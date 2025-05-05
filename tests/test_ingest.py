@@ -10,8 +10,8 @@ import pytest
 import boto3
 import os
 import json
-# import io # No longer needed
-# import urllib.request # No longer needed for patching
+import io # Re-add for dummy response
+import urllib.request # Re-add for patching
 from moto import mock_aws
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
@@ -93,18 +93,26 @@ def mock_env_vars(aws_credentials):
     os.environ["RSS_URL"] = "http://mock-rss-url.com" # Use the same valid dummy URL
 
 @mock_aws
-# Only need to patch feedparser.parse now
+# Patch both urlopen and feedparser.parse again
+@patch('src.ingest.handler.urllib.request.urlopen')
 @patch('src.ingest.handler.feedparser.parse')
-def test_ingest_handler_deduplication(mock_feedparser_parse, mock_env_vars):
+def test_ingest_handler_deduplication(mock_feedparser_parse, mock_urlopen, mock_env_vars):
     """
     Tests that the handler correctly deduplicates filings based on accession_no
     using the DynamoDB table.
     """
     # --- Arrange ---
-    # 1. Mock feedparser to return our test data
+    # 1. Mock urlopen to return a dummy response (empty bytes)
+    #    Needs to be a context manager (__enter__/__exit__)
+    mock_response = MagicMock()
+    mock_response.read.return_value = b'' # Empty bytes is fine since feedparser is mocked
+    mock_response.__enter__.return_value = mock_response # Return self for 'with' statement
+    mock_urlopen.return_value = mock_response
+
+    # 2. Mock feedparser to return our test data
     mock_feedparser_parse.return_value = MagicMock(**MOCK_FEED_DATA)
 
-    # 2. Create Mock AWS Resources
+    # 3. Create Mock AWS Resources
     s3_client = boto3.client("s3", region_name=TEST_REGION)
     sqs_client = boto3.client("sqs", region_name=TEST_REGION)
     dynamodb_client = boto3.client("dynamodb", region_name=TEST_REGION)
