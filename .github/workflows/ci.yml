@@ -22,7 +22,7 @@ jobs:
       - name: Install Poetry and export plugin
         run: pip install poetry poetry-plugin-export
       - name: Update lock file if needed
-        run: poetry lock --no-update
+        run: poetry lock
       - name: Install dependencies
         run: poetry install --no-root
       - name: Run tests
@@ -104,7 +104,7 @@ jobs:
       - name: Install Poetry and export plugin
         run: pip install poetry poetry-plugin-export
       - name: Update lock file if needed
-        run: poetry lock --no-update
+        run: poetry lock 
       - name: Install dependencies
         run: poetry install --no-root
       - name: Build Lambda package
