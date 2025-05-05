@@ -49,3 +49,5 @@ output "artifacts_bucket_arn" {
   description = "The ARN of the S3 bucket used for storing deployment artifacts"
   value       = aws_s3_bucket.artifacts.arn
 }
+
+# Removed aws_account_id output as it's now fetched via AWS CLI in the workflow
