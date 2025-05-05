@@ -23,7 +23,10 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root
       - name: Run tests
-        env: # Set region for boto3/moto during testing
+        env: # Set dummy credentials and region for boto3/moto during testing
+          AWS_ACCESS_KEY_ID: testing
+          AWS_SECRET_ACCESS_KEY: testing
+          AWS_SESSION_TOKEN: testing # Optional but good practice for moto
           AWS_DEFAULT_REGION: us-east-1
         run: poetry run pytest -q
       - name: Build Lambda package
