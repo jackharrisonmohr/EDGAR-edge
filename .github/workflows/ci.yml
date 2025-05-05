@@ -123,12 +123,24 @@ jobs:
       - name: Terraform Init
         run: terraform -chdir=infra init
 
-      - name: Terraform Apply (Initial - Create Infra)
-        id: tf-apply-initial
-        # Removed env block - Terraform will use default project_name from vars.tf if secret is not set
-        run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=placeholder.zip" # Use a placeholder key first
+      - name: Create Placeholder Lambda Code
+        run: |
+          echo "def handler(event, context): return {'statusCode': 200, 'body': 'Placeholder'}" > placeholder_handler.py
+          zip placeholder.zip placeholder_handler.py
 
-      - name: Upload Lambda zip to S3 Artifacts Bucket
+      - name: Upload Placeholder Lambda zip to S3
+        run: |
+          PROJECT_NAME="${{ secrets.TF_VAR_project_name || 'edgar-edge' }}" # Use default if secret is not set
+          aws s3 cp placeholder.zip s3://${PROJECT_NAME}-artifacts-${{ secrets.AWS_ACCOUNT_ID }}/placeholder.zip --acl private
+        env:
+           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+
+      - name: Terraform Apply (Initial - Create Infra with Placeholder Code)
+        id: tf-apply-initial
+        # This apply uses the placeholder.zip which now exists in S3
+        run: terraform -chdir=infra apply -auto-approve -var="lambda_zip_s3_key=placeholder.zip"
+
+      - name: Upload Lambda zip to S3 Artifacts Bucket # This uploads the REAL package
         id: s3-upload
         run: |
           S3_KEY="lambda_ingest_${{ github.sha }}.zip"
