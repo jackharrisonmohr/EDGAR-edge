@@ -55,7 +55,7 @@ jobs:
       - name: Install Poetry and export plugin
         run: pip install poetry poetry-plugin-export
       - name: Update lock file if needed
-        run: poetry lock --no-update
+        run: poetry lock
       - name: Install dependencies
         run: poetry install --no-root
       # Potentially run 'make lambda-package' if plan depends on it? Assuming not for now.
