@@ -10,6 +10,37 @@ import aiohttp
 import boto3
 import botocore
 
+'''
+# This script is designed to backfill SEC filings from the EDGAR database.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+This is how I set up the EC2 instance to run the async backfill script.
+
+aws ec2 run-instances \
+  --image-id ami-0f88e80871fd81e91 \
+  --instance-type t3.small \
+  --count 1 \
+  --key-name harrison2025 \
+  --iam-instance-profile Name=edgar-edge-backfill-ec2-profile \
+  --instance-market-options '{"MarketType":"spot"}'
+
+  
+```bash
+#!/bin/bash
+sudo yum update -y
+sudo yum install git -y
+git clone --branch sprint2 https://github.com/jackharrisonmohr/EDGAR-edge.git
+cd EDGAR-Edge
+python3 -m venv venv
+source venv/bin/activate
+pip install aiohttp boto3
+python3 -m src.ingest.async_backfill --mode s3 --bucket edgar-edge-raw --years 2019 2020 2021 2022 2023 2024
+```
+# ──────────────────────────────────────────────────────────────────────────
+
+'''
+
 # ──────────────────────────────────────────────────────────────────────────
 # Configuration
 # ──────────────────────────────────────────────────────────────────────────
