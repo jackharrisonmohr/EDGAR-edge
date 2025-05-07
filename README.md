@@ -137,6 +137,16 @@ Built upon the ingest pipeline by adding a robust message queue, deduplication, 
 - **Terraform Refactor:** Created a dedicated S3 bucket for deployment artifacts (`infra/artifacts.tf`) and updated the Lambda definition (`infra/lambda.tf`) to deploy code from this S3 bucket, improving the deployment process.
 - **Label Generation Script:** Created the initial script (`src/research/generate_labels.py`) to calculate forward abnormal returns and generate sentiment labels based on price data (`yfinance`) and CIK-ticker mapping (`ticker.txt`). Added necessary dependencies (`pandas`, `yfinance`, etc.) to `pyproject.toml`. (Note: Historical data download via `backfill.py` was completed separately by the user).
 - **CI Enhancements:** Updated the GitHub Actions workflow (`.github/workflows/ci.yml`) to run `terraform plan` on pull requests to `main` and to handle uploading the Lambda artifact to S3 during deployment.
+- **Completed Backfill downloads 2019-2025 to s3 bucket** 
+~1.25 TB of filings (433,921 filings) for 2019 - May 4 2025
+
+```
+$ aws s3api list-objects-v2   --bucket edgar-edge-raw   --output json --query "[sum(Contents[].Size), length(Contents[])]"
+[
+    1374441707718,
+    483921
+]
+```
 
 This milestone ensures that filings are processed reliably and exactly once, and prepares the necessary data labels for the upcoming model fine-tuning stage.
 
