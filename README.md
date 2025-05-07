@@ -49,6 +49,9 @@ For a detailed diagram, see [`docs/architecture.md`](docs/architecture.md).
 
 ## 🏁 Quickstart
 > (live demo to come. So far this quickstart just allows you to deploy the infrastructure on AWS and pull the SEC filings from the EDGAR RSS feed into an s3 bucket in real-time. - JHM, 2025-04-27)
+### Accessing EDGAR Data
+
+For more information on accessing the EDGAR database, refer to the official SEC documentation: [Accessing EDGAR Data](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).
 
 ### Prerequisites
 
@@ -147,6 +150,16 @@ $ aws s3api list-objects-v2   --bucket edgar-edge-raw   --output json --query "[
     483921
 ]
 ```
+
+- **Sampled smaller dataset for efficiency**
+Sampled 5% of the filings and got a ~68GB dataset across ~24k objects. 
+It turns out the size of the filings is highly skewed. The top filings are over 50MB while filings are typically under 1MB.
+
+Deleted the top 100 largest filings from the sample dataset and the new dataset was ~21GB, a >3x size reduction with only a tiny fraction of the samples removed. 
+
+
+
+
 
 This milestone ensures that filings are processed reliably and exactly once, and prepares the necessary data labels for the upcoming model fine-tuning stage.
 
