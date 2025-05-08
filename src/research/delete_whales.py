@@ -10,6 +10,17 @@ aws s3api list-objects-v2 \
   --query "reverse(sort_by(Contents, &Size))[:100].Key" \
   --output text > top100.txt
 
+  
+
+Alternatively, use the following shell command, pasing in the text file. : 
+xargs -n1 -I{} aws s3 rm s3://edgar-edge-raw/{} --quiet < fulldataset_ordered_top10000.txt
+
+where the .txt file looks like: 
+raw/2025/0001558370-25-002017.json
+raw/2023/0001418100-23-000041.json
+raw/2025/0000915913-25-000024.json
+...
+
 '''
 
 import boto3

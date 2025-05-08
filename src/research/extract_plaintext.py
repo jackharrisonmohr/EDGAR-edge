@@ -14,8 +14,8 @@ from tqdm import tqdm
 
 # S3 setup
 s3  = s3fs.S3FileSystem()
-SRC = 'edgar-edge-raw/sample/raw/'
-DST = 'edgar-edge-raw/sample/text/'
+SRC = 'edgar-edge-raw/raw/'
+DST = 'edgar-edge-raw/text/'
 
 def extract_plain(xml_str: str) -> str:
     parser = etree.HTMLParser()

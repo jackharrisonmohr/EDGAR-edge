@@ -9,6 +9,11 @@ Key improvements (v2.4)
 * Chunked ticker fetch with logging of missing/delisted tickers.
 * Drops filings for which no price data could be retrieved.
 * Explicitly set yfinance auto_adjust=False to ensure `Adj Close` is returned.
+
+
+Testing: 
+
+poetry run python generate_labels.py     --start-date 2019-01-01 --end-date 2019-01-10     --workers 4 --limit 50
 """
 
 import argparse
@@ -34,6 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger("labeler")
 
 RAW_FILINGS_BUCKET = "edgar-edge-raw"
+BUCKET_PREFIX = "sample/text/"
 SPX_TICKER = "^GSPC"
 ABNORMAL_RETURN_DAYS = 3
 LABEL_THRESHOLD = 0.008
@@ -63,7 +69,7 @@ def list_s3_keys(bucket: str, years: List[int]) -> List[str]:
     paginator = s3.get_paginator("list_objects_v2")
     keys: List[str] = []
     for yr in tqdm(years, desc="Listing years"):
-        prefix = f"sample/text/{yr}/"
+        prefix = f"{BUCKET_PREFIX}{yr}/"
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             keys.extend([
                 obj["Key"]
@@ -161,20 +167,34 @@ def compute_join_date(ts):
 
 def fetch_spx(start, end):
     import pandas as pd, yfinance as yf
-    df = yf.download(
-        SPX_TICKER,
+    # always pass a list, so yf.download returns a DataFrame with MultiIndex columns
+    raw = yf.download(
+        [SPX_TICKER],
         start=start - timedelta(days=10),
         end=end + timedelta(days=10),
         progress=False,
         auto_adjust=False,
-    )["Adj Close"]
-    if df.empty:
-        logger.error("Failed to fetch SPX (^GSPC) data—cannot compute abnormal returns.")
-        sys.exit(1)
-    df = df.to_frame(name=SPX_TICKER)
-    df.index = pd.to_datetime(df.index).tz_localize(None)
-    return df
+    )
 
+    # raw.columns will be a MultiIndex like [ ('Adj Close','^GSPC'), ... ]
+    try:
+        # pull out the SPX Adj Close series
+        adj = raw["Adj Close"][SPX_TICKER]
+    except Exception:
+        logger.error("Failed to locate SPX ’Adj Close’ in yfinance output:\n%s", raw.columns)
+        sys.exit(1)
+
+    if adj.empty:
+        logger.error("SPX data is empty for %s → %s; cannot compute abnormal returns.", start, end)
+        sys.exit(1)
+
+    # build a one‐column DataFrame named "^GSPC"
+    spx_df = adj.to_frame(name=SPX_TICKER)
+    # drop any timezone info
+    spx_df.index = pd.to_datetime(spx_df.index).tz_localize(None)
+    logger.info("Fetched SPX: rows=%d  span=%s→%s", len(spx_df),
+                spx_df.index.min().date(), spx_df.index.max().date())
+    return spx_df
 
 def fetch_ticker_prices(tickers, start, end, chunk=100, pause=1.0):
     import pandas as pd, yfinance as yf
@@ -256,15 +276,26 @@ def generate_labels(start_date, end_date, workers, bucket,
         logger.error("^GSPC missing after final concat—aborting.")
         sys.exit(1)
 
-    # 4. abnormal returns & labels
+    # 4. compute abnormal returns & melt into long form
     abn = compute_abn(prices)
-    abn_long = (
-        abn.stack()
-           .reset_index()
-           .rename(columns={0: f"abn_ret_{ABNORMAL_RETURN_DAYS}d",
-                            "level_0": "join_date",
-                            "level_1": "ticker"})
-    )
+
+    # stack() returns a Series with a two‐level index (date, ticker)
+    # reset_index() turns those two levels into columns named level_0, level_1
+    stacked = abn.stack().reset_index()
+
+    # now explicitly assign the three column names we need:
+    #   0) join_date  ← formerly level_0
+    #   1) ticker     ← formerly level_1
+    #   2) abn_ret    ← the value column
+    stacked.columns = [
+        "join_date",
+        "ticker",
+        f"abn_ret_{ABNORMAL_RETURN_DAYS}d",
+    ]
+
+    # rename that value column into your label column name
+    abn_long = stacked
+
     merged = pd.merge(meta, abn_long,
                       on=["join_date","ticker"], how="left")
     lab_col = f"sentiment_label_{ABNORMAL_RETURN_DAYS}d"

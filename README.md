@@ -157,8 +157,11 @@ It turns out the size of the filings is highly skewed. The top filings are over 
 
 Deleted the top 100 largest filings from the sample dataset and the new dataset was ~21GB, a >3x size reduction with only a tiny fraction of the samples removed. 
 
+- **Converted XML to plaintext**
+Reduced dataset size by 20x.
 
-
+- **Created pre-processed full dataset**
+After success with reducing the size of the sampled dataset, took the full 1.2TB dataset and reduced it by removing the largest ~2% of objects (10,000 objects removed out of ~438k) and then converting to plaintext. 
 
 
 This milestone ensures that filings are processed reliably and exactly once, and prepares the necessary data labels for the upcoming model fine-tuning stage.
