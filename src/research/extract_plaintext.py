@@ -1,13 +1,5 @@
-'''
-Extracts the plain text from the raw XML files in the EDGAR dataset.
-The script reads JSON files from an S3 bucket, extracts the text content 
-from the XML, and writes it to a new gzipped text file in another S3 bucket.
-The script uses the lxml library to parse the XML and extract text, 
-and the tqdm library to show progress during the extraction process.
-
-'''
-
-import json, gzip
+import json
+import gzip
 import s3fs
 from lxml import etree
 from tqdm import tqdm
@@ -29,13 +21,26 @@ print(f"Found {len(all_keys)} files to process.")
 
 # Extract and write plain text with progress
 for key in tqdm(all_keys, desc="Extracting text"):
+    # determine the output key
+    out_key = key.replace('/raw/', '/text/').rsplit('.', 1)[0] + '.txt.gz'
+
+    # skip if already exists
+    if s3.exists(out_key):
+        tqdm.write(f"Skipping (already done): {out_key}")
+        continue
+
     try:
+        # read the raw JSON
         with s3.open(key, 'r') as f:
             rec = json.load(f)
+
+        # extract plain text
         text = extract_plain(rec['content'])
-        out_key = key.replace('/raw/', '/text/').rsplit('.',1)[0] + '.txt.gz'
+
+        # write to gzipped text file
         with s3.open(out_key, 'wb') as f:
             with gzip.GzipFile(fileobj=f, mode='w') as gz:
                 gz.write(text.encode('utf-8'))
+
     except Exception as e:
-        print(f"[Error] Failed to process {key}: {e}")
+        tqdm.write(f"[Error] Failed to process {key}: {e}")
