@@ -6,8 +6,8 @@ resource "aws_lb" "score_alb" {
   subnets            = var.private_subnets # Ensure these are private subnets
 
   tags = merge(var.tags, {
-    Name      = "${var.project_name}-score-alb"
-    Sprint    = "3"
+    Name   = "${var.project_name}-score-alb"
+    Sprint = "3"
   })
 }
 

@@ -35,7 +35,7 @@ resource "aws_security_group" "lambda_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   # Allow all outbound traffic for simplicity in this context, can be tightened
   # egress {
   #   from_port   = 0

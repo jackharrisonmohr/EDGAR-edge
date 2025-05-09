@@ -31,12 +31,12 @@ resource "aws_ecs_task_definition" "score_task" {
         value = "s3://your-model-bucket/path/to/your/model/" # Placeholder, update as needed
       },
       {
-        name  = "RAW_BUCKET" # For S3 fetch layer in app.py
+        name  = "RAW_BUCKET"                # For S3 fetch layer in app.py
         value = var.raw_filings_bucket_name # Assuming this var will hold the raw filings bucket name
       },
       {
-        name = "FARGATE_CPU" # For gunicorn_conf.py to adjust workers
-        value = "512" # Corresponds to 0.5 vCPU defined for the task
+        name  = "FARGATE_CPU" # For gunicorn_conf.py to adjust workers
+        value = "512"         # Corresponds to 0.5 vCPU defined for the task
       },
       {
         name  = "USE_REAL_MODEL"
@@ -82,7 +82,7 @@ resource "aws_ecs_service" "score_service" {
   desired_count   = 0 # Start with 0, will be managed by autoscaling
 
   network_configuration {
-    subnets          = var.private_subnets # Assuming private_subnets is defined in vars.tf
+    subnets          = var.private_subnets                    # Assuming private_subnets is defined in vars.tf
     security_groups  = [aws_security_group.ecs_service_sg.id] # Assuming ecs_service_sg is defined
     assign_public_ip = false
   }

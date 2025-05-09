@@ -7,10 +7,10 @@ resource "aws_ecr_repository" "score_repository" {
   }
 
   tags = {
-    Project     = "EDGAR-Edge"
-    Component   = "ScoringService"
-    Sprint      = "3"
-    ManagedBy   = "Terraform"
+    Project   = "EDGAR-Edge"
+    Component = "ScoringService"
+    Sprint    = "3"
+    ManagedBy = "Terraform"
   }
 }
 

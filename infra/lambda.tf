@@ -6,8 +6,8 @@ resource "aws_lambda_function" "ingest_puller" {
   # filename         = "../lambda_ingest.zip"                   # Replaced by S3 source
   # source_code_hash = filebase64sha256("../lambda_ingest.zip") # Replaced by S3 source
   s3_bucket         = aws_s3_bucket.artifacts.id # Reference the artifacts bucket
-  s3_key            = var.lambda_zip_s3_key       # Provided by CI/CD
-  s3_object_version = var.lambda_zip_s3_version   # Optional: Provided by CI/CD if versioning is used
+  s3_key            = var.lambda_zip_s3_key      # Provided by CI/CD
+  s3_object_version = var.lambda_zip_s3_version  # Optional: Provided by CI/CD if versioning is used
   timeout           = 30
 
   vpc_config {

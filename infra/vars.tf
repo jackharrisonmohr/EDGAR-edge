@@ -34,19 +34,19 @@ variable "lambda_zip_s3_version" {
 variable "vpc_id" {
   description = "The ID of the VPC where resources will be deployed."
   type        = string
-  default     = "" # Placeholder - should be configured per environment
+  default     = "vpc-01e8b89a1eeb904f7" #should be configured per environment
 }
 
 variable "private_subnets" {
   description = "A list of private subnet IDs for Fargate tasks and other resources."
   type        = list(string)
-  default     = [] # Placeholder - should be configured per environment
+  default     = ["subnet-0a9310564ba98d6c9"] # should be configured per environment
 }
 
 variable "vpc_cidr_block" {
   description = "The CIDR block for the VPC."
   type        = string
-  default     = "0.0.0.0/0" # Placeholder - should be configured per environment
+  default     = "172.31.0.0/16" # Pshould be configured per environment
 }
 
 variable "raw_filings_bucket_name" {
