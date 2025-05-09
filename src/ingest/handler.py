@@ -16,6 +16,7 @@ BUCKET = os.environ["RAW_BUCKET"]
 RSS = os.environ["RSS_URL"]
 SCORE_QUEUE_URL = os.environ["SCORE_QUEUE_URL"]
 DEDUPE_TABLE_NAME = os.environ["DEDUPE_TABLE"] # Get DynamoDB table name
+ALB_DNS_NAME = os.environ.get("ALB_DNS_NAME") # Get ALB DNS Name, will be set by TF
 DEDUPE_TABLE = DYNAMODB.Table(DEDUPE_TABLE_NAME)
 TTL_SECONDS = 7 * 24 * 60 * 60 # 7 days for TTL
 
@@ -111,6 +112,27 @@ def lambda_handler(event, context):
                 'MessageGroupId': 'filings' # Required for FIFO queues
             })
             sqs_prepared_count += 1
+
+            # 4. Make synchronous call to ALB for smoke test (if ALB_DNS_NAME is configured)
+            if ALB_DNS_NAME:
+                score_url = f"http://{ALB_DNS_NAME}/v1/score" # Assuming HTTP for internal ALB
+                score_payload = {"s3_key": object_key}
+                print(f"Calling ALB for scoring: {score_url} with payload: {score_payload}")
+                try:
+                    req_data = json.dumps(score_payload).encode('utf-8')
+                    score_req = urllib.request.Request(
+                        score_url,
+                        data=req_data,
+                        headers={'Content-Type': 'application/json', "User-Agent": "EDGAR-Edge-Ingest-Lambda"},
+                        method='POST'
+                    )
+                    with urllib.request.urlopen(score_req, timeout=10) as score_response: # 10s timeout
+                        response_body = score_response.read().decode('utf-8')
+                        print(f"ALB Score Response for {accession_no} (status {score_response.status}): {response_body}")
+                except Exception as alb_err:
+                    print(f"ERROR calling ALB for {accession_no}: {alb_err}")
+            else:
+                print("ALB_DNS_NAME not configured, skipping synchronous score call.")
 
         except Exception as err:
             # Use accession_no if available in error message

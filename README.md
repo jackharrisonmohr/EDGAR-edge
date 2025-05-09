@@ -138,7 +138,38 @@ Built upon the ingest pipeline by adding a robust message queue, deduplication, 
 - **Ingest Deduplication:** Modified the ingest Lambda (`src/ingest/handler.py`) to perform a conditional `PutItem` to the DynamoDB table before processing a filing. If the accession number already exists, the filing is skipped, preventing duplicate processing downstream. Added unit tests (`tests/test_ingest.py`) using `moto` to verify this logic.
 - **Monitoring Foundation:** Added CloudWatch alarms (`infra/monitoring.tf`) to monitor the age of the oldest message in the SQS queue, triggering warnings and critical alerts if processing lags.
 - **Terraform Refactor:** Created a dedicated S3 bucket for deployment artifacts (`infra/artifacts.tf`) and updated the Lambda definition (`infra/lambda.tf`) to deploy code from this S3 bucket, improving the deployment process.
-- **Label Generation Script:** Created the initial script (`src/research/generate_labels.py`) to calculate forward abnormal returns and generate sentiment labels based on price data (`yfinance`) and CIK-ticker mapping (`ticker.txt`). Added necessary dependencies (`pandas`, `yfinance`, etc.) to `pyproject.toml`. (Note: Historical data download via `backfill.py` was completed separately by the user).
+- **Label Generation Script:** Created the initial script (`src/research/generate_labels.py`) to calculate forward abnormal returns and generate sentiment labels based on price data (`yfinance`) and CIK-ticker mapping (`ticker.txt`). Added necessary dependencies (`pandas`, `yfinance`, etc.) to `pyproject.toml`. (Note: Historical data download via `async_backfill.py` was completed separately).
+
+- **Verified Label Generation**
+```
+$ poetry run python3 inspect_partquet.py 
+           accession_no   cik ticker filed_at_dt  abn_ret_3d  sentiment_label_3d
+0  0000003545-19-000056  3545   ALCO  2019-04-12   -0.016651                  -1
+1  0000003545-19-000146  3545   ALCO  2019-12-16   -0.011275                  -1
+2  0000003570-19-000040  3570    LNG  2019-05-09   -0.001960                   0
+3  0000004962-19-000002  4962    AXP  2019-01-15   -0.002197                   0
+4  0000004962-19-000091  4962    AXP  2019-11-15   -0.001264                   0
+sentiment_label_3d
+-1    11
+ 0    10
+ 1     6
+Name: count, dtype: int64
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 27 entries, 0 to 26
+Data columns (total 6 columns):
+ #   Column              Non-Null Count  Dtype         
+---  ------              --------------  -----         
+ 0   accession_no        27 non-null     object        
+ 1   cik                 27 non-null     object        
+ 2   ticker              27 non-null     object        
+ 3   filed_at_dt         27 non-null     datetime64[ns]
+ 4   abn_ret_3d          27 non-null     float64       
+ 5   sentiment_label_3d  27 non-null     int64         
+dtypes: datetime64[ns](1), float64(1), int64(1), object(3)
+memory usage: 1.4+ KB
+None
+```
+
 - **CI Enhancements:** Updated the GitHub Actions workflow (`.github/workflows/ci.yml`) to run `terraform plan` on pull requests to `main` and to handle uploading the Lambda artifact to S3 during deployment.
 - **Completed Backfill downloads 2019-2025 to s3 bucket** 
 ~1.25 TB of filings (433,921 filings) for 2019 - May 4 2025
@@ -165,6 +196,71 @@ After success with reducing the size of the sampled dataset, took the full 1.2TB
 
 
 This milestone ensures that filings are processed reliably and exactly once, and prepares the necessary data labels for the upcoming model fine-tuning stage.
+
+---
+
+## 🎉 Milestone 3: Scoring Service & Initial Model (Completed Week 3 - In Progress)
+
+This sprint focused on standing up the first end-to-end scoring path. This includes a containerized FastAPI service capable of sentiment inference using a baseline dummy model, with the ability to swap to a fine-tuned DistilRoBERTa model. Key infrastructure components like ECR, ECS Fargate, and an internal ALB were provisioned. The goal is to achieve p95 latency < 300 ms and enable CI-driven deploys.
+
+**Key Achievements (Sprint 3):**
+
+- **ECR Repository:** Created an ECR repository (`edgar-edge/score`) for storing the scoring service Docker images.
+- **ECS Fargate Setup:**
+    - Defined an ECS cluster (`edgar-edge-cluster`).
+    - Created a Fargate task definition (`edgar-edge-score-task`) with 0.5 vCPU, 1 GiB memory, and environment variables for model configuration.
+    - Configured an ECS service (`edgar-edge-score-service`) with 0->1 autoscaling.
+- **Internal ALB:** Provisioned an internal Application Load Balancer exposing port 80 within the VPC for the scoring service.
+- **Lambda to ALB Integration:** Updated the ingest Lambda to be VPC-enabled and configured security groups to allow it to send synchronous requests to the ALB's `/v1/score` endpoint for smoke testing.
+- **FastAPI Scoring Application (`src/score/`):**
+    - Developed a FastAPI application with `/health` and `/v1/score` endpoints.
+    - Implemented a baseline `DummySentimentModel` class with a `.predict()` method using a simple heuristic.
+    - Created a multi-stage `Dockerfile` using Gunicorn and Uvicorn workers for a slim production image, including a health check.
+    - Added an S3 fetch layer with LRU caching (up to 100KB files) to the FastAPI app for retrieving filing content.
+    - Integrated Prometheus middleware for exporting latency and request count metrics via a `/metrics` endpoint.
+- **Load Testing Harness:** Developed a Locust script (`tests/locust_score.py`) to simulate load and assert latency KPIs.
+- **Baseline Model Fine-tuning Script (`src/research/finetune_roberta_script.py`):**
+    - Created a script for fine-tuning DistilRoBERTa with LoRA on a sample corpus.
+    - Includes data preprocessing, tokenization, HuggingFace Trainer setup, WandB logging, and model saving.
+    - Added functionality to upload the trained model checkpoint to S3 (`models/baseline/`).
+- **API Model Integration:** The FastAPI application can now load and use the fine-tuned PEFT model (if available locally and `USE_REAL_MODEL` is enabled) or fall back to the dummy model.
+- **CI/CD Enhancements:**
+    - Added a GitHub Actions job to build the scoring service Docker image and push it to ECR on merges to `main`.
+    - Added Pytest tests for the scoring API (`/health`, `/v1/score` shape) and updated CI to (notionally) run them.
+
+**Scoring Service Architecture Snippet:**
+
+The scoring service is an ECS Fargate task running a FastAPI application. It sits behind an internal Application Load Balancer (ALB).
+1.  The Ingest Lambda (or other authorized services) makes a POST request to the ALB's `/v1/score` endpoint with an S3 key.
+2.  The ALB forwards the request to one of the Fargate tasks.
+3.  The FastAPI application in the Fargate task:
+    a.  Receives the S3 key.
+    b.  Fetches the filing content from the `edgar-edge-raw` S3 bucket (using an LRU cache).
+    c.  Performs sentiment analysis using either the dummy model or a fine-tuned DistilRoBERTa model (selected via an environment variable).
+    d.  Returns the S3 key, sentiment score, and model version.
+4.  Prometheus metrics (latency, request counts) are exposed on a `/metrics` endpoint.
+
+```text
+    Ingest Lambda (VPC) ─┐
+              │          │ (sync POST /v1/score)
+              ▼          ▼
+    SQS "score-queue"   Internal ALB ──► ECS Fargate Task Pool (FastAPI Scoring Service)
+    (async message)                       │    - Fetches from S3 `raw/` (LRU Cache)
+                                          │    - Uses Dummy or Fine-tuned Model
+                                          │    - Exposes `/metrics`
+                                          ▼
+                                     S3 `scored/` (JSON blobs with sentiment)
+                                          │ (Output from scoring service, not yet implemented in Sprint 3 API)
+                                          ▼
+                                     CloudWatch Logs (for Fargate & Lambda)
+                                     Prometheus/Grafana (for /metrics)
+```
+
+**Load Test Results:**
+
+*(Placeholder for Locust load test screenshot showing p95 latency < 300 ms)*
+-   [ ] Locust load test run successfully.
+-   [ ] p95 latency confirmed to be < 300 ms.
 
 ---
 

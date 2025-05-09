@@ -10,12 +10,18 @@ resource "aws_lambda_function" "ingest_puller" {
   s3_object_version = var.lambda_zip_s3_version   # Optional: Provided by CI/CD if versioning is used
   timeout           = 30
 
+  vpc_config {
+    subnet_ids         = var.private_subnets
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+
   environment {
     variables = {
       RAW_BUCKET      = aws_s3_bucket.raw_filings.id
       RSS_URL         = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&output=atom"
       SCORE_QUEUE_URL = aws_sqs_queue.score_queue.id          # Get URL from sqs.tf output
       DEDUPE_TABLE    = aws_dynamodb_table.filing_dedupe.name # Get table name from dynamodb.tf
+      ALB_DNS_NAME    = aws_lb.score_alb.dns_name             # Get DNS name from alb.tf output
     }
   }
 

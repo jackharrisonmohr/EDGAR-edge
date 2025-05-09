@@ -30,3 +30,27 @@ variable "lambda_zip_s3_version" {
   type        = string
   default     = null # Optional, only needed if S3 versioning is used for the artifact
 }
+
+variable "vpc_id" {
+  description = "The ID of the VPC where resources will be deployed."
+  type        = string
+  default     = "" # Placeholder - should be configured per environment
+}
+
+variable "private_subnets" {
+  description = "A list of private subnet IDs for Fargate tasks and other resources."
+  type        = list(string)
+  default     = [] # Placeholder - should be configured per environment
+}
+
+variable "vpc_cidr_block" {
+  description = "The CIDR block for the VPC."
+  type        = string
+  default     = "0.0.0.0/0" # Placeholder - should be configured per environment
+}
+
+variable "raw_filings_bucket_name" {
+  description = "The name of the S3 bucket for raw filings."
+  type        = string
+  default     = "edgar-edge-raw" # Default, ensure this matches s3.tf or is overridden
+}
