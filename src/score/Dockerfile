@@ -13,7 +13,7 @@ COPY pyproject.toml poetry.lock ./
 # --no-dev: Do not install development dependencies
 # --no-interaction: Do not ask any interactive questions
 # --no-ansi: Disable ANSI output
-RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+RUN poetry config virtualenvs.create false && poetry install --no-root --no-interaction --no-ansi
 
 # Stage 2: Runtime stage - Create the final slim image
 FROM python:3.11-slim
