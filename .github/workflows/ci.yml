@@ -123,7 +123,7 @@ jobs:
       - name: Terraform Init and Apply ECR
         run: |
           terraform -chdir=infra init
-          terraform -chdir=infra apply -target=aws_ecr_repository.score_repository -auto-approve
+          terraform -chdir=infra apply -target=aws_ecr_repository.score_repository -auto-approve -var="lambda_zip_s3_key="
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
