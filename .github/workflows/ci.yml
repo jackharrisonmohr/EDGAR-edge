@@ -134,6 +134,7 @@ jobs:
 
   deploy: # Runs only on push to main
     name: Deploy to AWS
+    needs: docker-build-push-score-service # Ensure Docker image is built before deploying
     # Removed 'needs: test-build' so this runs independently on push to main
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
