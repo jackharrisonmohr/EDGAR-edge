@@ -1,0 +1,8 @@
+terraform destroy \ 
+-target=aws_appautoscaling_target.ecs_service_scaling_target \
+-target=aws_ecs_cluster.main \
+-target=aws_ecs_service.score_service \
+-target=aws_ecs_task_definition.score_task \
+-target=aws_lb.score_alb \
+-target=aws_lb_listener.http \
+-target=aws_lb_target_group.score_tg \
