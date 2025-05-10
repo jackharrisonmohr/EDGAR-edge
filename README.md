@@ -4,7 +4,7 @@
 
 > A production‑grade pipeline that ingests SEC filings in near‑real‑time, runs fast sentiment inference with a fine‑tuned DistilRoBERTa model, constructs a z‑scored daily sentiment factor, and backs it against SPX sectors—all hosted with Terraform, Docker, and AWS serverless infrastructure.
 
----
+----
 
 ## ✅ Key Highlights
 
