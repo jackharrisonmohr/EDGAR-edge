@@ -40,7 +40,7 @@ variable "vpc_id" {
 variable "private_subnets" {
   description = "A list of private subnet IDs for Fargate tasks and other resources."
   type        = list(string)
-  default     = ["subnet-0a9310564ba98d6c9"] # should be configured per environment
+  default     = ["subnet-0a9310564ba98d6c9", "subnet-00d87ce2a59b73f95"] # should be configured per environment
 }
 
 variable "vpc_cidr_block" {
