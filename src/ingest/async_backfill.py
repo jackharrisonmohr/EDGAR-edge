@@ -28,8 +28,8 @@ aws ec2 run-instances \
   
 ```bash
 #!/bin/bash
-sudo yum update -y
-sudo yum install git -y
+sudo dnf update -y
+sudo dnf install git -y
 git clone --branch sprint2 https://github.com/jackharrisonmohr/EDGAR-edge.git
 cd EDGAR-Edge
 python3 -m venv venv
@@ -37,6 +37,12 @@ source venv/bin/activate
 pip install aiohttp boto3
 python3 -m src.ingest.async_backfill --mode s3 --bucket edgar-edge-raw --years 2019 2020 2021 2022 2023 2024
 ```
+
+Or if you want to run in the background, you can use `nohup`:
+ nohup python3 -m src.ingest.async_backfill \
+    --mode s3 --bucket edgar-edge-raw \
+    --years 2019 2020 2021 2022 2024 2025 \
+    > backfill.log 2>&1 &
 # ──────────────────────────────────────────────────────────────────────────
 
 '''
