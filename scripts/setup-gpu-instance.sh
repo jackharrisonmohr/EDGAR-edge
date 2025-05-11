@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
+'''
+to install aws cli:
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 
+'''
 # Constants
 CUDA_DEB="cuda-repo-ubuntu2204-12-1-local_12.1.1-530.30.02-1_amd64.deb"
 CUDA_URL="https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/$CUDA_DEB"
@@ -34,7 +40,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 echo ">>> Cloning EDGAR-Edge repo..."
 # If you already uploaded it via SCP, skip this. Otherwise:
-git clone https://github.com/YOUR_USERNAME/EDGAR-Edge.git
+git clone https://github.com/jackharrisonmohr/EDGAR-Edge.git
 cd EDGAR-Edge
 
 echo ">>> Installing project dependencies via Poetry..."
