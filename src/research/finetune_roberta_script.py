@@ -83,12 +83,24 @@ def preprocess_data(data_path, sample_fraction=1.0, test_size=0.2, seed=42):
     df = pd.read_parquet(data_path)
     print(f"Full dataset shape: {df.shape}")
 
-    if not ('text' in df.columns and 'label' in df.columns):
-        raise ValueError("Dataframe must contain 'text' and 'label' columns.")
+    # Check for 'text' and the original sentiment label column
+    if not ('text' in df.columns and 'sentiment_label_3d' in df.columns):
+        raise ValueError("Dataframe must contain 'text' and 'sentiment_label_3d' columns.")
 
-    # Ensure labels are integers (0 or 1)
-    df['label'] = df['label'].astype(int)
-    
+    # Rename sentiment_label_3d to 'label' for consistency downstream
+    df.rename(columns={'sentiment_label_3d': 'label'}, inplace=True)
+
+    # Ensure labels are integers and map them to 0, 1, 2
+    # -1 (negative) -> 0
+    #  0 (neutral)  -> 1
+    #  1 (positive) -> 2
+    df['label'] = df['label'].replace({-1: 0, 0: 1, 1: 2}).astype(int)
+    print("Label distribution after mapping:")
+    print(df['label'].value_counts())
+
+    # Ensure labels are integers (0 for negative, 1 for neutral, 2 for positive)
+    # df['label'] = df['label'].astype(int) # Already done with replace and astype
+
     # Sample the data if sample_fraction < 1.0
     if sample_fraction < 1.0:
         df = df.sample(frac=sample_fraction, random_state=seed)
@@ -150,7 +162,7 @@ def main():
     # 2. Initialize tokenizer and model
     print(f"Step 2: Initializing tokenizer and model ({MODEL_NAME})...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2) # Assuming binary classification
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=3) # 3 classes: Negative, Neutral, Positive
 
     # 3. Tokenize datasets
     print("Step 3: Tokenizing datasets...")
@@ -262,10 +274,11 @@ if __name__ == "__main__":
     # Create dummy data for testing if DATA_FILE_PATH doesn't exist
     if not os.path.exists(DATA_FILE_PATH):
         print(f"Warning: {DATA_FILE_PATH} not found. Creating dummy data for script execution.")
-        num_samples = 200
-        dummy_texts = [f"This is sample text number {i}. It's {'positive' if i % 2 == 0 else 'negative'}." for i in range(num_samples)]
-        dummy_labels = [1 if i % 2 == 0 else 0 for i in range(num_samples)]
-        dummy_df = pd.DataFrame({'text': dummy_texts, 'label': dummy_labels})
+        num_samples = 201 # Ensure we get all three classes -1, 0, 1
+        dummy_texts = [f"This is sample text number {i}." for i in range(num_samples)]
+        # Generate labels -1, 0, 1 cyclically
+        dummy_labels = [(i % 3) - 1 for i in range(num_samples)]
+        dummy_df = pd.DataFrame({'text': dummy_texts, 'sentiment_label_3d': dummy_labels})
         dummy_df.to_parquet(DATA_FILE_PATH, index=False)
         print(f"Dummy data created at {DATA_FILE_PATH}")
 

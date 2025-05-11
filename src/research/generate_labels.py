@@ -39,7 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger("labeler")
 
 RAW_FILINGS_BUCKET = "edgar-edge-raw"
-BUCKET_PREFIX = "sample/text/"
+DEFAULT_BUCKET_PREFIX = "sample/text/" # Use a default constant
 SPX_TICKER = "^GSPC"
 ABNORMAL_RETURN_DAYS = 3
 LABEL_THRESHOLD = 0.008
@@ -64,12 +64,12 @@ def load_cik_ticker_map(path: str) -> Dict[str, str]:
 
 # -- S3 enumerate
 
-def list_s3_keys(bucket: str, years: List[int]) -> List[str]:
+def list_s3_keys(bucket: str, years: List[int], bucket_prefix: str) -> List[str]:
     s3 = boto3.client("s3")
     paginator = s3.get_paginator("list_objects_v2")
     keys: List[str] = []
     for yr in tqdm(years, desc="Listing years"):
-        prefix = f"{BUCKET_PREFIX}{yr}/"
+        prefix = f"{bucket_prefix}{yr}/" # Use the passed prefix
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
             keys.extend([
                 obj["Key"]
@@ -100,18 +100,22 @@ def _parse_sec_header(plain: str) -> Dict[str, str] | None:
 
 
 def _extract_head_fields(blob: bytes, key: str) -> Dict[str, Any] | None:
-    """Decompress HEAD_BYTES of gzip blob & parse accession + dates."""
+    """Decompress entire gzip blob, parse accession + dates, and extract text."""
     try:
         with gzip.GzipFile(fileobj=io.BytesIO(blob)) as gf:
-            txt = gf.read().decode("utf-8", errors="ignore")
-    except (OSError, EOFError):
+            full_text_content = gf.read().decode("utf-8", errors="ignore")
+    except (OSError, EOFError) as e:
+        logger.warning("Failed to decompress/decode S3 key %s: %s", key, e)
         return None
 
     acc_name = key.rsplit("/", 1)[-1].replace(".txt.gz", "")
     cik = acc_name.split("-")[0].lstrip("0")
 
-    sec_meta = _parse_sec_header(txt)
+    # Parse header from the beginning of the content for metadata
+    # Assuming _parse_sec_header works on the initial part of the text
+    sec_meta = _parse_sec_header(full_text_content[:HEAD_BYTES]) # Use HEAD_BYTES for header parsing
     if not sec_meta:
+        logger.warning("Failed to parse SEC header for S3 key %s", key)
         return None
 
     import pandas as pd
@@ -122,6 +126,7 @@ def _extract_head_fields(blob: bytes, key: str) -> Dict[str, Any] | None:
         "cik": cik,
         "filed_at_dt": filed_dt,
         "s3_key": key,
+        "text": full_text_content, # Add the full text content
     }
 
 
@@ -131,14 +136,18 @@ def fetch_metadata(bucket: str, keys: List[str], workers: int):
 
     def _pull(k: str):
         try:
+            # Fetch the entire object, not just a byte range
             obj = s3.get_object(
                 Bucket=bucket,
                 Key=k,
-                Range=f"bytes=0-{HEAD_BYTES-1}",
             )
-            head = obj["Body"].read()
-            return _extract_head_fields(head, k)
-        except botocore.exceptions.ClientError:
+            full_content_blob = obj["Body"].read()
+            return _extract_head_fields(full_content_blob, k)
+        except botocore.exceptions.ClientError as e:
+            logger.warning("S3 ClientError for key %s: %s", k, e)
+            return None
+        except Exception as e:
+            logger.error("Unexpected error fetching/processing key %s: %s", k, e)
             return None
 
     recs: List[Dict[str, Any]] = []
@@ -236,7 +245,7 @@ def compute_abn(prices):
 
 # ---------------- main pipeline ----------------
 
-def generate_labels(start_date, end_date, workers, bucket,
+def generate_labels(start_date, end_date, workers, bucket, bucket_prefix,
                     limit=0, dry_run=False):
     import pandas as pd, pyarrow as pa, pyarrow.parquet as pq
 
@@ -246,7 +255,7 @@ def generate_labels(start_date, end_date, workers, bucket,
     # 2. list & metadata
     yrs = list(range(pd.to_datetime(start_date).year,
                      pd.to_datetime(end_date).year + 1))
-    keys = list_s3_keys(bucket, yrs)
+    keys = list_s3_keys(bucket, yrs, bucket_prefix) # Pass bucket_prefix
     if limit:
         keys = keys[:limit]
         logger.info("LIMIT set: processing first %d objects", limit)
@@ -303,11 +312,16 @@ def generate_labels(start_date, end_date, workers, bucket,
     merged[lab_col] = merged[f"abn_ret_{ABNORMAL_RETURN_DAYS}d"].apply(
         lambda x: 1 if x > thr else -1 if x < -thr else 0
     )
-    final = merged.dropna(subset=[f"abn_ret_{ABNORMAL_RETURN_DAYS}d"] )[
-        ["accession_no","cik","ticker","filed_at_dt",
-         f"abn_ret_{ABNORMAL_RETURN_DAYS}d", lab_col]
+    # Include 'text' column in the final output
+    final_columns = [
+        "accession_no", "cik", "ticker", "filed_at_dt",
+        f"abn_ret_{ABNORMAL_RETURN_DAYS}d", lab_col, "text" # Added "text"
     ]
+    final = merged.dropna(subset=[f"abn_ret_{ABNORMAL_RETURN_DAYS}d"])[final_columns]
+    
     logger.info("Label distribution:%s", final[lab_col].value_counts())
+    if "text" in final.columns:
+        logger.info("Average text length: %.2f characters", final["text"].str.len().mean())
 
     out = "edgar_labels.parquet"
     pq.write_table(pa.Table.from_pandas(final, preserve_index=False),
@@ -330,6 +344,8 @@ if __name__ == "__main__":
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--workers", type=int, default=16)
     parser.add_argument("--bucket", default=RAW_FILINGS_BUCKET)
+    parser.add_argument("--bucket-prefix", default=DEFAULT_BUCKET_PREFIX,
+                        help=f"S3 bucket prefix for raw filings (default: {DEFAULT_BUCKET_PREFIX}).")
     parser.add_argument("--limit", type=int, default=0,
                         help="Process only first N objects (debug).")
     parser.add_argument("--dry-run", action="store_true",
@@ -339,7 +355,7 @@ if __name__ == "__main__":
     logger.info("Run parameters: %s", args)
     generate_labels(
         args.start_date, args.end_date,
-        args.workers, args.bucket,
+        args.workers, args.bucket, args.bucket_prefix, # Pass bucket_prefix
         limit=args.limit, dry_run=args.dry_run
     )
     logger.info("Done.")
