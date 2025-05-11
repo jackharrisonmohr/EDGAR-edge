@@ -199,7 +199,7 @@ def main():
         per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE,
         learning_rate=LEARNING_RATE,
         weight_decay=WEIGHT_DECAY,
-        evaluation_strategy="steps", # Evaluate at each `eval_steps`
+        eval_strategy="steps", # Evaluate at each `eval_steps`
         eval_steps=EVAL_STEPS,
         save_strategy="steps",       # Save at each `save_steps`
         save_steps=SAVE_STEPS,
@@ -275,10 +275,13 @@ if __name__ == "__main__":
     if not os.path.exists(DATA_FILE_PATH):
         print(f"Warning: {DATA_FILE_PATH} not found. Creating dummy data for script execution.")
         num_samples = 201 # Ensure we get all three classes -1, 0, 1
-        dummy_texts = [f"This is sample text number {i}." for i in range(num_samples)]
-        # Generate labels -1, 0, 1 cyclically
-        dummy_labels = [(i % 3) - 1 for i in range(num_samples)]
-        dummy_df = pd.DataFrame({'text': dummy_texts, 'sentiment_label_3d': dummy_labels})
+        print(f"Warning: {DATA_FILE_PATH} not found. Creating dummy data for script execution.")
+        num_samples = 201 # Ensure we get all three classes 0, 1, 2
+        dummy_texts = [f"This is sample text number {i}. This is some sample text content for testing purposes." for i in range(num_samples)] # Added sample text content
+        # Generate labels 0, 1, 2 cyclically
+        dummy_labels = [i % 3 for i in range(num_samples)] # Generate labels 0, 1, 2 directly
+        dummy_df = pd.DataFrame({'text': dummy_texts, 'label': dummy_labels}) # Use 'label' column name
+        dummy_df['label'] = dummy_df['label'].astype(int) # Ensure integer type
         dummy_df.to_parquet(DATA_FILE_PATH, index=False)
         print(f"Dummy data created at {DATA_FILE_PATH}")
 

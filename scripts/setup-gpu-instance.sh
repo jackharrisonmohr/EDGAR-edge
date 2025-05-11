@@ -56,3 +56,5 @@ echo "✅ Setup complete. Ready to fine-tune."
 
 echo "💡 Next step: Upload your edgar_labels.parquet file to this instance."
 echo "Then run: poetry run python src/research/finetune_roberta_script.py"
+echo "download the dataset from se using: curl -O https://edgar-edge-labelled-parquets.s3.us-east-1.amazonaws.com/edgar_labels_sample_dataset.parquet"
+
