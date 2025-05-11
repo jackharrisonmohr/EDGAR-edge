@@ -276,12 +276,11 @@ if __name__ == "__main__":
         print(f"Warning: {DATA_FILE_PATH} not found. Creating dummy data for script execution.")
         num_samples = 201 # Ensure we get all three classes -1, 0, 1
         print(f"Warning: {DATA_FILE_PATH} not found. Creating dummy data for script execution.")
-        num_samples = 201 # Ensure we get all three classes 0, 1, 2
+        num_samples = 201 # Ensure we get all three classes -1, 0, 1
         dummy_texts = [f"This is sample text number {i}. This is some sample text content for testing purposes." for i in range(num_samples)] # Added sample text content
-        # Generate labels 0, 1, 2 cyclically
-        dummy_labels = [i % 3 for i in range(num_samples)] # Generate labels 0, 1, 2 directly
-        dummy_df = pd.DataFrame({'text': dummy_texts, 'label': dummy_labels}) # Use 'label' column name
-        dummy_df['label'] = dummy_df['label'].astype(int) # Ensure integer type
+        # Generate labels -1, 0, 1 cyclically
+        dummy_labels = [(i % 3) - 1 for i in range(num_samples)] # Generate labels -1, 0, 1
+        dummy_df = pd.DataFrame({'text': dummy_texts, 'sentiment_label_3d': dummy_labels}) # Use 'sentiment_label_3d' column name
         dummy_df.to_parquet(DATA_FILE_PATH, index=False)
         print(f"Dummy data created at {DATA_FILE_PATH}")
 
