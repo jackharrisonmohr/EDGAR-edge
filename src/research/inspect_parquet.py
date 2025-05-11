@@ -5,6 +5,7 @@ df = pd.read_parquet("edgar_labels.parquet")
 
 # see the first few rows
 print(df.head())
+print(df['text'].iloc[0])
 
 # get a quick summary of the label distribution
 print(df["sentiment_label_3d"].value_counts())

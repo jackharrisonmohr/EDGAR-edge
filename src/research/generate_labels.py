@@ -39,7 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger("labeler")
 
 RAW_FILINGS_BUCKET = "edgar-edge-raw"
-DEFAULT_BUCKET_PREFIX = "sample/text/" # Use a default constant
+DEFAULT_BUCKET_PREFIX = "text/" # Use a default constant
 SPX_TICKER = "^GSPC"
 ABNORMAL_RETURN_DAYS = 3
 LABEL_THRESHOLD = 0.008
