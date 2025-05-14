@@ -37,10 +37,10 @@ nvidia-smi || { echo "❌ ERROR: GPU not detected. Check instance type."; exit 1
 # pip install --upgrade pip
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-echo ">>> Installing aws cli..."
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
+# echo ">>> Installing aws cli..."
+# curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+# unzip awscliv2.zip
+# sudo ./aws/install
 
 echo ">>> Cloning EDGAR-Edge repo..."
 # If you already uploaded it via SCP, skip this. Otherwise:
@@ -56,5 +56,5 @@ echo "✅ Setup complete. Ready to fine-tune."
 
 echo "💡 Next step: Upload your edgar_labels.parquet file to this instance."
 echo "Then run: poetry run python src/research/finetune_roberta_script.py"
-echo "download the dataset from se using: curl -O https://edgar-edge-labelled-parquets.s3.us-east-1.amazonaws.com/edgar_labels_sample_dataset.parquet"
+echo "download the dataset from se using: t "
 

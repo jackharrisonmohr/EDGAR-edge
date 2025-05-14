@@ -133,10 +133,11 @@ def compute_metrics(eval_pred):
     metric_recall = load_metric("recall")
     metric_accuracy = load_metric("accuracy")
     
+    # Use 'weighted' average for multiclass metrics
     return {
-        "f1": metric_f1.compute(predictions=predictions, references=labels)["f1"],
-        "precision": metric_precision.compute(predictions=predictions, references=labels)["precision"],
-        "recall": metric_recall.compute(predictions=predictions, references=labels)["recall"],
+        "f1": metric_f1.compute(predictions=predictions, references=labels, average="weighted")["f1"],
+        "precision": metric_precision.compute(predictions=predictions, references=labels, average="weighted")["precision"],
+        "recall": metric_recall.compute(predictions=predictions, references=labels, average="weighted")["recall"],
         "accuracy": metric_accuracy.compute(predictions=predictions, references=labels)["accuracy"],
     }
 
