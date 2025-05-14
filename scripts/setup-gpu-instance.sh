@@ -56,5 +56,5 @@ echo "✅ Setup complete. Ready to fine-tune."
 
 echo "💡 Next step: Upload your edgar_labels.parquet file to this instance."
 echo "Then run: poetry run python src/research/finetune_roberta_script.py"
-echo "download the dataset from se using: t "
+# echo "download the dataset from se using: t "
 

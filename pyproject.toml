@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "MIT License"}
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "requests (>=2.32.3,<3.0.0)",
     "boto3 (>=1.38.3,<2.0.0)",
@@ -22,8 +22,6 @@ dependencies = [
     "pandas-market-calendars (>=5.1.0,<6.0.0)",
     "transformers (>=4.38.0,<5.0.0)", # For HuggingFace models
     "datasets (>=2.17.0,<3.0.0)",     # For HuggingFace datasets
-    "torch (>=2.1.0,<3.0.0)",         # PyTorch
-    "peft (>=0.9.0,<1.0.0)",          # For LoRA (Parameter-Efficient Fine-Tuning)
     "wandb (>=0.16.0,<1.0.0)"         # For experiment tracking
 ]
 
@@ -51,3 +49,7 @@ httpx = "^0.25.0" # For API testing (test_score_api.py)
 # Dependencies specifically needed for the ingest lambda handler
 boto3 = ">=1.38.3,<2.0.0"
 feedparser = ">=6.0.11,<7.0.0"
+
+[tool.poetry.group.vm.dependencies]
+torch = "^2.1.0"
+peft = "^0.15.0"
