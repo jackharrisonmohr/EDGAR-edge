@@ -42,9 +42,9 @@ nvidia-smi || { echo "❌ ERROR: GPU not detected. Check instance type."; exit 1
 # unzip awscliv2.zip
 # sudo ./aws/install
 
-echo ">>> Cloning EDGAR-Edge repo..."
+# echo ">>> Cloning EDGAR-Edge repo..."
 # If you already uploaded it via SCP, skip this. Otherwise:
-git clone https://github.com/jackharrisonmohr/EDGAR-Edge
+# git clone https://github.com/jackharrisonmohr/EDGAR-Edge
 cd EDGAR-Edge
 echo ">>> Configuring Poetry to use Python 3.12..."
 poetry env use $(which python3.12)
