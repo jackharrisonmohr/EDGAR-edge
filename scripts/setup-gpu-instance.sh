@@ -2,6 +2,7 @@
 set -e
 
 #Configured to run on vast.ai instance with Ubuntu 22.04, torch, and NVIDIA drivers pre-installed.
+# Run from scripts/ directory.
 
 # Constants
 # CUDA_DEB="cuda-repo-ubuntu2204-12-1-local_12.1.1-530.30.02-1_amd64.deb"
