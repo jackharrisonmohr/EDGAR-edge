@@ -10,19 +10,13 @@ readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "requests (>=2.32.3,<3.0.0)",
-    "boto3 (>=1.38.3,<2.0.0)",
     "python-dateutil (>=2.9.0.post0,<3.0.0)",
     "feedparser (>=6.0.11,<7.0.0)",
-    "pandas (>=2.2.2,<3.0.0)",
     "yfinance (>=0.2.40,<0.3.0)",
-    "numpy (>=1.26.4,<2.0.0)",
     "pyarrow (>=16.1.0,<17.0.0)",
     "scipy (>=1.14.0,<2.0.0)", # For abnormal return calculation
     "tqdm (>=4.67.1,<5.0.0)",
     "pandas-market-calendars (>=5.1.0,<6.0.0)",
-    "transformers (>=4.38.0,<5.0.0)", # For HuggingFace models
-    "datasets (>=2.17.0,<3.0.0)",     # For HuggingFace datasets
-    "wandb (>=0.16.0,<1.0.0)"         # For experiment tracking
 ]
 
 
@@ -51,5 +45,3 @@ boto3 = ">=1.38.3,<2.0.0"
 feedparser = ">=6.0.11,<7.0.0"
 
 [tool.poetry.group.vm.dependencies]
-torch = "^2.1.0"
-peft = "^0.15.0"

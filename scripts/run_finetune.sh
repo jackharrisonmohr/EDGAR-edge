@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
 
-# Activate virtual environment
-echo ">>> Activating virtual environment..."
-source ~/edgarenv/bin/activate
+# Ensure the conda environment is activated before running this script.
+# For example:
+# source ~/miniconda3/bin/activate
+# conda activate edgar-research
 
 # Navigate to project root
 cd ~/EDGAR-Edge
@@ -19,8 +20,8 @@ fi
 echo ">>> Starting fine-tuning at $(date)"
 echo ">>> Output will be saved to ./results_finetune_roberta/ and uploaded to S3"
 
-# Run the training script using Poetry
-poetry run python src/research/finetune_roberta_script.py
+# Run the training script
+python src/research/finetune_roberta_script.py
 
 # Log end time
 echo "✅ Fine-tuning completed at $(date)"

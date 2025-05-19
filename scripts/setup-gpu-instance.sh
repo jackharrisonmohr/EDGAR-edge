@@ -17,11 +17,23 @@ sudo apt update
 sudo apt install -y python3.12 python3.12-venv python3.12-dev
 
 
+echo ">>> Installing Miniconda..."
+MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
+MINICONDA_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
+wget $MINICONDA_URL -O /tmp/$MINICONDA_INSTALLER
+bash /tmp/$MINICONDA_INSTALLER -b -p $HOME/miniconda3
+rm /tmp/$MINICONDA_INSTALLER
 
-echo ">>> Installing Poetry..."
-curl -sSL https://install.python-poetry.org | python3 -
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+echo ">>> Initializing Conda..."
+source $HOME/miniconda3/bin/activate
+conda init bash
+
+echo ">>> Creating and activating Conda environment for research..."
+# Navigate to the research directory first to ensure environment.yml is found
+cd src/research/
+conda env create -f environment.yml
+conda activate edgar-research
+cd ../../ # Navigate back to project root
 
 # echo ">>> Installing NVIDIA drivers and CUDA..."
 # wget $CUDA_URL
@@ -46,15 +58,10 @@ nvidia-smi || { echo "❌ ERROR: GPU not detected. Check instance type."; exit 1
 # If you already uploaded it via SCP, skip this. Otherwise:
 # git clone https://github.com/jackharrisonmohr/EDGAR-Edge
 cd EDGAR-Edge
-echo ">>> Configuring Poetry to use Python 3.12..."
-poetry env use $(which python3.12)
-
-echo ">>> Installing project dependencies via Poetry..."
-poetry install
-
 echo "✅ Setup complete. Ready to fine-tune."
 
 echo "💡 Next step: Upload your edgar_labels.parquet file to this instance."
-echo "Then run: poetry run python src/research/finetune_roberta_script.py"
+echo "Then activate the conda environment and run the script:"
+echo "conda activate edgar-research"
+echo "python src/research/finetune_roberta_script.py"
 # echo "download the dataset from se using: t "
-

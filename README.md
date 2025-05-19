@@ -47,6 +47,29 @@ For a detailed diagram, see [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
+## 🔬 Research Environment (Conda)
+
+The scripts located in `src/research/` utilize a dedicated Conda environment to manage dependencies, particularly for the `finetune_roberta_script.py`. This helps avoid potential conflicts with system-wide or other project dependencies.
+
+To set up the research environment:
+
+1.  Navigate to the research directory:
+    ```bash
+    cd src/research/
+    ```
+2.  Create the conda environment using the provided `environment.yml` file:
+    ```bash
+    conda env create -f environment.yml
+    ```
+3.  Activate the environment:
+    ```bash
+    conda activate edgar-research
+    ```
+
+Ensure this environment is activated before running any research scripts that depend on these packages, such as `finetune_roberta_script.py`.
+
+---
+
 ## 🏁 Quickstart
 > (live demo to come. So far this quickstart just allows you to deploy the infrastructure on AWS and pull the SEC filings from the EDGAR RSS feed into an s3 bucket in real-time. - JHM, 2025-04-27)
 ### Accessing EDGAR Data
