@@ -9,11 +9,11 @@ set -e
 # CUDA_URL="https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/$CUDA_DEB"
 
 # --- CONFIGURATION VARIABLES ---
-AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
-AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
+# AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
+# AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
 AWS_REGION="us-east-1"  # or your region
 S3_URI="s3://edgar-edge-labelled-parquets/edgar_labels_sample_dataset.parquet"
-DESTINATION_PATH="/workspace/EDGAR-Edge/src/research"  # current directory, or change if needed
+DESTINATION_PATH="/workspace/EDGAR-edge/src/research"  # current directory, or change if needed
 # -------------------------------
 
 echo ">>> Updating system and installing base dependencies..."

@@ -14,7 +14,7 @@ import wandb
 import numpy as np
 import boto3 # For S3 upload
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
-
+import evaluate
 # --- Configuration ---
 # Model
 MODEL_NAME = "distilroberta-base"
@@ -40,7 +40,7 @@ FP16_TRAINING = torch.cuda.is_available() # Enable fp16 if CUDA is available
 # Assume edgar_labels.parquet is in the same directory or accessible path
 # This file should have 'text' and 'label' columns (0 for negative, 1 for positive)
 DATA_FILE_PATH = "edgar_labels.parquet" # Or path to your labeled data
-SAMPLE_FRACTION = 0.05 # 5% sample as per ML-3.1
+SAMPLE_FRACTION = 1.0 # Use full dataset
 TEST_SIZE = 0.2 # 20% of the sample for validation/hold-out
 RANDOM_SEED = 42
 
