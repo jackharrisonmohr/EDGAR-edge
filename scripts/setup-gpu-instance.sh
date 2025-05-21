@@ -2,11 +2,19 @@
 set -e
 
 #Configured to run on vast.ai instance with Ubuntu 22.04, torch, and NVIDIA drivers pre-installed.
-# Run from scripts/ directory.
+# Run from project root directory (EDGAR).
 
 # Constants
 # CUDA_DEB="cuda-repo-ubuntu2204-12-1-local_12.1.1-530.30.02-1_amd64.deb"
 # CUDA_URL="https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/$CUDA_DEB"
+
+# --- CONFIGURATION VARIABLES ---
+AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
+AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
+AWS_REGION="us-east-1"  # or your region
+S3_URI="s3://edgar-edge-labelled-parquets/edgar_labels_sample_dataset.parquet"
+DESTINATION_PATH="/workspace/EDGAR-Edge/src/research"  # current directory, or change if needed
+# -------------------------------
 
 echo ">>> Updating system and installing base dependencies..."
 sudo apt update && sudo apt upgrade -y
@@ -50,19 +58,43 @@ nvidia-smi || { echo "❌ ERROR: GPU not detected. Check instance type."; exit 1
 # pip install --upgrade pip
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-# echo ">>> Installing aws cli..."
-# curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-# unzip awscliv2.zip
-# sudo ./aws/install
+echo ">>> Installing aws cli..."
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+echo ">>> Configuring AWS CLI..."
+mkdir -p ~/.aws
+cat <<EOF > ~/.aws/credentials
+[default]
+aws_access_key_id = $AWS_ACCESS_KEY_ID
+aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
+EOF
+
+cat <<EOF > ~/.aws/config
+[default]
+region = $AWS_REGION
+output = json
+EOF
+
+echo ">>> Verifying AWS configuration..."
+aws sts get-caller-identity
+
+echo ">>> Downloading S3 object: $S3_URI"
+aws s3 cp "$S3_URI" "$DESTINATION_PATH"
+
+echo "✅ Done."
 
 # echo ">>> Cloning EDGAR-Edge repo..."
 # If you already uploaded it via SCP, skip this. Otherwise:
 # git clone https://github.com/jackharrisonmohr/EDGAR-Edge
-cd EDGAR-Edge
+# cd EDGAR-Edge
 echo "✅ Setup complete. Ready to fine-tune."
 
-echo "💡 Next step: Upload your edgar_labels.parquet file to this instance."
+echo "💡 Next step: Upload your edgar_labels.parquet file to this instance (available with `curl -O https://edgar-edge-labelled-parquets.s3.us-east-1.amazonaws.com/edgar_labels_sample_dataset.parquet`)."
+echo "Rename to `edgar_labels.parquet`"
 echo "Then activate the conda environment and run the script:"
 echo "conda activate edgar-research"
 echo "python src/research/finetune_roberta_script.py"
+
 # echo "download the dataset from se using: t "
