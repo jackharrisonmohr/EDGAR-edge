@@ -128,10 +128,10 @@ def compute_metrics(eval_pred):
     logits, labels = eval_pred
     predictions = np.argmax(logits, axis=-1)
     
-    metric_f1 = load_metric("f1")
-    metric_precision = load_metric("precision")
-    metric_recall = load_metric("recall")
-    metric_accuracy = load_metric("accuracy")
+    metric_f1 = evaluate.load("f1")
+    metric_precision = evaluate.load("precision")
+    metric_recall = evaluate.load("recall")
+    metric_accuracy = evaluate.load("accuracy")
     
     # Use 'weighted' average for multiclass metrics
     return {
